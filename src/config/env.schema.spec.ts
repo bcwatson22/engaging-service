@@ -1,16 +1,30 @@
 import { defaultPort, invalidMessage, validate } from "./env.schema";
 
+const required = {
+  SITE_URL: "https://www.engaging.engineering",
+  REDIS_URL: "redis://127.0.0.1:6379",
+  R2_ACCOUNT_ID: "account",
+  R2_ACCESS_KEY_ID: "key",
+  R2_SECRET_ACCESS_KEY: "secret",
+  R2_BUCKET: "engaging-artifacts",
+  R2_PUBLIC_BASE: "https://artifacts.example.com",
+};
+
 const setup =
   (config: Record<string, unknown> = {}) =>
   () =>
-    validate(config);
+    validate({ ...required, ...config });
 
 describe("validate", () => {
-  it("applies defaults when nothing is supplied", () => {
-    expect(setup()()).toEqual({
+  it("applies defaults when only the required values are supplied", () => {
+    expect(setup()()).toMatchObject({
       NODE_ENV: "development",
       PORT: defaultPort,
     });
+  });
+
+  it("returns the supplied values", () => {
+    expect(setup()().SITE_URL).toBe(required.SITE_URL);
   });
 
   it("coerces a numeric port from its string environment value", () => {
@@ -29,13 +43,24 @@ describe("validate", () => {
     expect(setup({ PORT: "-1" })).toThrow(invalidMessage);
   });
 
-  it("names the offending variable in the message", () => {
-    expect(setup({ PORT: "nonsense" })).toThrow(/PORT —/);
+  it("throws when a required url is missing", () => {
+    expect(setup({ SITE_URL: undefined })).toThrow(/SITE_URL —/);
+  });
+
+  it("throws when a url is malformed", () => {
+    expect(setup({ R2_PUBLIC_BASE: "not-a-url" })).toThrow(/R2_PUBLIC_BASE —/);
+  });
+
+  it("throws when a required credential is empty", () => {
+    expect(setup({ R2_SECRET_ACCESS_KEY: "" })).toThrow(
+      /R2_SECRET_ACCESS_KEY —/,
+    );
   });
 
   it("labels a root-level failure when the config is not an object", () => {
-    expect(setup("nonsense" as unknown as Record<string, unknown>)).toThrow(
-      /\(root\) —/,
-    );
+    const parse = () =>
+      validate("nonsense" as unknown as Record<string, never>);
+
+    expect(parse).toThrow(/\(root\) —/);
   });
 });

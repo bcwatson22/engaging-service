@@ -7,6 +7,20 @@ const defaultPort = 3000;
 const envSchema = z.object({
   NODE_ENV: z.enum(environments).default("development"),
   PORT: z.coerce.number().int().positive().default(defaultPort),
+
+  /* The deployed site the renderer navigates to. No trailing slash — paths
+     are appended directly. */
+  SITE_URL: z.url(),
+
+  REDIS_URL: z.url(),
+
+  R2_ACCOUNT_ID: z.string().min(1),
+  R2_ACCESS_KEY_ID: z.string().min(1),
+  R2_SECRET_ACCESS_KEY: z.string().min(1),
+  R2_BUCKET: z.string().min(1),
+  /* Where uploaded objects are publicly readable. The site rewrites its own
+     paths to this, so visitors never see it. */
+  R2_PUBLIC_BASE: z.url(),
 });
 
 type TEnv = z.infer<typeof envSchema>;
