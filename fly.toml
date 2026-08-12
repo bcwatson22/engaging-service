@@ -1,0 +1,26 @@
+app = "engaging-service"
+primary_region = "lhr"
+
+[build]
+
+[http_service]
+internal_port = 3000
+force_https = true
+# Renders are triggered by webhook, not by traffic, so the machine can sleep
+# between them. Suspend rather than stop keeps the wake fast.
+auto_stop_machines = "suspend"
+auto_start_machines = true
+min_machines_running = 0
+
+[[http_service.checks]]
+interval = "30s"
+timeout = "5s"
+grace_period = "10s"
+method = "GET"
+path = "/health"
+
+[[vm]]
+# Headless Chrome is memory-hungry; 1GB is the floor for reliable rendering.
+memory = "1gb"
+cpu_kind = "shared"
+cpus = 1
