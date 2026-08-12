@@ -9,10 +9,10 @@ importers:
   .:
     dependencies:
       '@aws-sdk/client-s3':
-        specifier: ^3.1108.0
+        specifier: 3.1108.0
         version: 3.1108.0
       '@nestjs/bullmq':
-        specifier: ^11.0.5
+        specifier: 11.0.5
         version: 11.0.5(@nestjs/common@11.1.29(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.29)(bullmq@6.1.0(ioredis@6.0.0))
       '@nestjs/common':
         specifier: 11.1.29
@@ -30,13 +30,13 @@ importers:
         specifier: 11.1.1
         version: 11.1.1(@nestjs/common@11.1.29(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.29)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       bullmq:
-        specifier: ^6.1.0
+        specifier: 6.1.0
         version: 6.1.0(ioredis@6.0.0)
       ioredis:
-        specifier: ^6.0.0
+        specifier: 6.0.0
         version: 6.0.0
       puppeteer:
-        specifier: ^25.6.0
+        specifier: 25.6.0
         version: 25.6.0(yauzl@3.4.0)
       reflect-metadata:
         specifier: 0.2.2

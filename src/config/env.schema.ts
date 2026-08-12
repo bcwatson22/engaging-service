@@ -14,6 +14,11 @@ const envSchema = z.object({
 
   REDIS_URL: z.url(),
 
+  /* Shared secret for the manual render trigger. The Hygraph webhook has its
+     own signature verification; this guards the endpoint used to re-render
+     by hand. */
+  RENDER_SECRET: z.string().min(1),
+
   R2_ACCOUNT_ID: z.string().min(1),
   R2_ACCESS_KEY_ID: z.string().min(1),
   R2_SECRET_ACCESS_KEY: z.string().min(1),

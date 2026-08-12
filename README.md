@@ -26,9 +26,21 @@ Under construction. See the branch table in the plan for what has landed.
 
 ## Development
 
+Copy `.env.example` to `.env` and fill it in, then start a local Redis:
+
 ```bash
-pnpm install
-pnpm dev
+docker run -d -p 6379:6379 --name engaging-redis redis:7-alpine
 ```
 
-Copy `.env.example` to `.env` and fill it in first.
+```bash
+pnpm install && pnpm dev
+```
+
+Trigger a render by hand:
+
+```bash
+curl -X POST localhost:3000/render -H "x-render-secret: $RENDER_SECRET"
+```
+
+That returns `202` with a job id; the worker logs the render and the resulting
+public URL. `GET /health` reports whether the app is up.

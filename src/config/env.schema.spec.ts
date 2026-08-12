@@ -3,6 +3,7 @@ import { defaultPort, invalidMessage, validate } from "./env.schema";
 const required = {
   SITE_URL: "https://www.engaging.engineering",
   REDIS_URL: "redis://127.0.0.1:6379",
+  RENDER_SECRET: "shared-secret",
   R2_ACCOUNT_ID: "account",
   R2_ACCESS_KEY_ID: "key",
   R2_SECRET_ACCESS_KEY: "secret",
