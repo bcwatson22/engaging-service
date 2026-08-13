@@ -40,14 +40,14 @@ pnpm install && pnpm dev
 
 | Route                    | Trigger       | Notes                                                                               |
 | ------------------------ | ------------- | ----------------------------------------------------------------------------------- |
-| `POST /webhooks/hygraph` | A CMS publish | Verifies `gcms-signature`. Waits for the site's content to change before rendering. |
+| `POST /webhooks/hygraph` | A CMS publish | Verifies `gcms-signature`. Queues every artifact, each waiting for its own content to change. |
 | `POST /render`           | You, by hand  | Guarded by `x-render-secret`. Forces a render, skipping the content check.          |
 | `GET /health`            | The platform  | Readiness.                                                                          |
 
 Trigger a render by hand:
 
 ```bash
-curl -X POST localhost:3000/render -H "x-render-secret: $RENDER_SECRET"
+curl -X POST localhost:3000/render/cv-pdf -H "x-render-secret: $RENDER_SECRET"
 ```
 
 Both return `202` with a job id - the render takes 10-20 seconds, far longer

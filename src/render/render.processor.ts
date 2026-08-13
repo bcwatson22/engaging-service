@@ -2,14 +2,22 @@ import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { Job } from "bullmq";
+import type { Browser } from "puppeteer";
 
 import type { TEnv } from "../config/env.schema";
 import { StorageService } from "../storage/storage.service";
 import { launch } from "./browser";
-import { fetchContentHash } from "./content-hash";
+import { fetchCombinedHash } from "./content-hash";
 import { HashStore } from "./hash.store";
 import { renderPdf } from "./pdf";
-import { cvPdf, renderQueue, type TRenderJob } from "./render.constants";
+import {
+  cvPdf,
+  renderQueue,
+  startupImages,
+  startupImagesJob,
+  type TRenderJob,
+} from "./render.constants";
+import { captureStartupImages, contentType } from "./startup-images";
 
 /* One at a time: two Chrome instances on a shared-CPU machine will contend
    for memory and make both renders slower and less reliable. */
@@ -31,16 +39,18 @@ export class RenderProcessor extends WorkerHost {
   }
 
   async process(job: Job<TRenderJob>): Promise<string> {
-    const siteUrl = this.config.get("SITE_URL", { infer: true });
-    const url = `${siteUrl}${cvPdf.path}`;
+    return job.name === startupImagesJob
+      ? await this.startupImages(job)
+      : await this.cvPdf(job);
+  }
 
-    const hash = await this.assertChanged(url, job);
+  private async cvPdf(job: Job<TRenderJob>): Promise<string> {
+    const url = this.urlFor(cvPdf.path);
+    const hash = await this.assertChanged([url], cvPdf.key, job);
 
     this.logger.log(`Rendering ${url} for job ${job.id}`);
 
-    const browser = await launch();
-
-    try {
+    return await this.withBrowser(async (browser) => {
       const pdf = await renderPdf(browser, url);
       const uploaded = await this.storage.upload(
         cvPdf.key,
@@ -48,11 +58,47 @@ export class RenderProcessor extends WorkerHost {
         cvPdf.contentType,
       );
 
-      /* Only after a successful upload, so a failed render is retried against
-         the same previous hash rather than being treated as done. */
       await this.hashes.set(cvPdf.key, hash);
 
       return uploaded;
+    });
+  }
+
+  private async startupImages(job: Job<TRenderJob>): Promise<string> {
+    const urls = startupImages.paths.map((path) => this.urlFor(path));
+    const hash = await this.assertChanged(urls, startupImages.key, job);
+
+    this.logger.log(`Capturing startup images for job ${job.id}`);
+
+    return await this.withBrowser(async (browser) => {
+      const captured = await captureStartupImages(
+        browser,
+        this.config.get("SITE_URL", { infer: true }),
+      );
+
+      /* Sequential, so a failure part-way leaves the earlier images uploaded
+         and the hash unrecorded — the retry simply overwrites them. */
+      for (const { key, image } of captured) {
+        await this.storage.upload(key, image, contentType);
+      }
+
+      await this.hashes.set(startupImages.key, hash);
+
+      return `${captured.length} startup images`;
+    });
+  }
+
+  private urlFor(path: string): string {
+    return `${this.config.get("SITE_URL", { infer: true })}${path}`;
+  }
+
+  private async withBrowser<Result>(
+    run: (browser: Browser) => Promise<Result>,
+  ): Promise<Result> {
+    const browser = await launch();
+
+    try {
+      return await run(browser);
     } finally {
       /* Always — an orphaned Chrome would hold its memory for the life of
          the container. */
@@ -61,15 +107,23 @@ export class RenderProcessor extends WorkerHost {
   }
 
   /* The CMS notifies the site and this service at the same moment, so the
-     page may still be serving its previous render. Throwing hands the job
+     pages may still be serving their previous render. Throwing hands the job
      back to BullMQ, which retries with exponential backoff until the content
-     actually changes — self-correcting, rather than a tuned delay. */
-  private async assertChanged(url: string, job: Job<TRenderJob>) {
-    const hash = await fetchContentHash(url);
+     actually changes — self-correcting, rather than a tuned delay.
+
+     The hash is recorded by the caller only after a successful upload, so a
+     failed render is retried against the same previous hash rather than being
+     treated as done. */
+  private async assertChanged(
+    urls: string[],
+    key: string,
+    job: Job<TRenderJob>,
+  ): Promise<string> {
+    const hash = await fetchCombinedHash(urls);
 
     if (job.data.force) return hash;
 
-    const previous = await this.hashes.get(cvPdf.key);
+    const previous = await this.hashes.get(key);
 
     if (previous === hash) throw new Error(unchangedMessage);
 

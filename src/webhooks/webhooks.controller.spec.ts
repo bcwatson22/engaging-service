@@ -5,35 +5,37 @@ import { SignatureGuard } from "./signature.guard";
 import { WebhooksController } from "./webhooks.controller";
 
 const setup = async () => {
-  const enqueueCvPdf = vi
-    .fn<() => Promise<string>>()
-    .mockResolvedValue("job-9");
+  const enqueueAll = vi
+    .fn<() => Promise<string[]>>()
+    .mockResolvedValue(["job-9", "job-10"]);
 
   const module = await Test.createTestingModule({
     controllers: [WebhooksController],
-    providers: [{ provide: RenderService, useValue: { enqueueCvPdf } }],
+    providers: [{ provide: RenderService, useValue: { enqueueAll } }],
   })
     .overrideGuard(SignatureGuard)
     .useValue({ canActivate: () => true })
     .compile();
 
-  return { controller: module.get(WebhooksController), enqueueCvPdf };
+  return { controller: module.get(WebhooksController), enqueueAll };
 };
 
 describe("WebhooksController", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("returns the id of the queued job", async () => {
+  it("returns an id for every queued artifact", async () => {
     const { controller } = await setup();
 
-    await expect(controller.hygraph()).resolves.toEqual({ jobId: "job-9" });
+    await expect(controller.hygraph()).resolves.toEqual({
+      jobIds: ["job-9", "job-10"],
+    });
   });
 
-  it("does not force the render, so the content check still applies", async () => {
-    const { controller, enqueueCvPdf } = await setup();
+  it("does not force, so each job waits for its content to change", async () => {
+    const { controller, enqueueAll } = await setup();
 
     await controller.hygraph();
 
-    expect(enqueueCvPdf).toHaveBeenNthCalledWith(1);
+    expect(enqueueAll).toHaveBeenNthCalledWith(1);
   });
 });

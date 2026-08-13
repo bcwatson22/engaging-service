@@ -34,8 +34,17 @@ const fetchContentHash = async (url: string): Promise<string> => {
   return hashContent(await response.text());
 };
 
+/* An artifact derived from several pages changes when any of them does, so
+   their hashes are combined into one value to compare against. */
+const fetchCombinedHash = async (urls: string[]): Promise<string> => {
+  const hashes = await Promise.all(urls.map((url) => fetchContentHash(url)));
+
+  return createHash("sha256").update(hashes.join(":")).digest("hex");
+};
+
 export {
   fetchContentHash,
+  fetchCombinedHash,
   hashContent,
   extractContent,
   missingMainMessage,
