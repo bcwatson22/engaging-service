@@ -36,11 +36,24 @@ docker run -d -p 6379:6379 --name engaging-redis redis:7-alpine
 pnpm install && pnpm dev
 ```
 
+## Endpoints
+
+| Route                    | Trigger       | Notes                                                                               |
+| ------------------------ | ------------- | ----------------------------------------------------------------------------------- |
+| `POST /webhooks/hygraph` | A CMS publish | Verifies `gcms-signature`. Waits for the site's content to change before rendering. |
+| `POST /render`           | You, by hand  | Guarded by `x-render-secret`. Forces a render, skipping the content check.          |
+| `GET /health`            | The platform  | Readiness.                                                                          |
+
 Trigger a render by hand:
 
 ```bash
 curl -X POST localhost:3000/render -H "x-render-secret: $RENDER_SECRET"
 ```
 
-That returns `202` with a job id; the worker logs the render and the resulting
-public URL. `GET /health` reports whether the app is up.
+Both return `202` with a job id - the render takes 10-20 seconds, far longer
+than a webhook sender will wait. The worker logs the render and the resulting
+public URL.
+
+The manual route forces the render deliberately: it exists for re-rendering
+after a change the CMS knows nothing about, such as a print-stylesheet tweak,
+which the unchanged-content check would otherwise reject.

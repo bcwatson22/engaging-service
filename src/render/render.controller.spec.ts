@@ -29,11 +29,11 @@ describe("RenderController", () => {
     await expect(controller.trigger()).resolves.toEqual({ jobId: "job-7" });
   });
 
-  it("queues exactly one render per request", async () => {
+  it("forces the render, since a manual trigger may follow a change the CMS does not know about", async () => {
     const { controller, enqueueCvPdf } = await setup();
 
     await controller.trigger();
 
-    expect(enqueueCvPdf).toHaveBeenCalledTimes(1);
+    expect(enqueueCvPdf).toHaveBeenNthCalledWith(1, true);
   });
 });

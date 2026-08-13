@@ -11,7 +11,9 @@ import type { TEnv } from "./config/env.schema";
 const host = "0.0.0.0";
 
 const bootstrap = async (): Promise<void> => {
-  const app = await NestFactory.create(AppModule);
+  /* rawBody so the Hygraph signature can be verified against the exact
+     bytes that were signed — a re-serialised body produces a different HMAC. */
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const config = app.get(ConfigService<TEnv, true>);
 
   app.enableShutdownHooks();

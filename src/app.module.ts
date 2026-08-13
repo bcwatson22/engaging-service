@@ -7,6 +7,7 @@ import type { TEnv } from "./config/env.schema";
 import { validate } from "./config/env.schema";
 import { HealthModule } from "./health/health.module";
 import { RenderModule } from "./render/render.module";
+import { WebhooksModule } from "./webhooks/webhooks.module";
 
 /* BullMQ workers issue blocking reads, which ioredis will otherwise abort
    after its default retry limit. null disables that ceiling, as BullMQ
@@ -27,6 +28,7 @@ const connectionOptions = { maxRetriesPerRequest: null };
     }),
     HealthModule,
     RenderModule,
+    WebhooksModule,
   ],
 })
 export class AppModule {}

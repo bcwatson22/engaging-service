@@ -33,7 +33,25 @@ describe("RenderService", () => {
 
     await service.enqueueCvPdf();
 
-    expect(add).toHaveBeenNthCalledWith(1, cvPdfJob, {}, jobOptions);
+    expect(add).toHaveBeenNthCalledWith(
+      1,
+      cvPdfJob,
+      { force: false },
+      jobOptions,
+    );
+  });
+
+  it("marks the job as forced when asked", async () => {
+    const { service, add } = await setup();
+
+    await service.enqueueCvPdf(true);
+
+    expect(add).toHaveBeenNthCalledWith(
+      1,
+      cvPdfJob,
+      { force: true },
+      jobOptions,
+    );
   });
 
   it("throws when the queue accepts the job without an id", async () => {

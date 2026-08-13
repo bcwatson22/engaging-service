@@ -15,13 +15,16 @@ type TAccepted = { jobId: string };
 export class RenderController {
   constructor(private readonly render: RenderService) {}
 
-  /* 202, not 200: the work has been accepted, not done. The Hygraph webhook
-     replaces this as the trigger; it stays for manual re-renders. */
+  /* 202, not 200: the work has been accepted, not done.
+
+     Forced, because this exists for re-rendering after a change the CMS knows
+     nothing about — a print-stylesheet tweak. Without it the unchanged-content
+     check would reject every manual trigger. */
   @Post()
   @UseGuards(SecretGuard)
   @HttpCode(HttpStatus.ACCEPTED)
   async trigger(): Promise<TAccepted> {
-    return { jobId: await this.render.enqueueCvPdf() };
+    return { jobId: await this.render.enqueueCvPdf(true) };
   }
 }
 

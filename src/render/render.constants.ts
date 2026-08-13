@@ -2,6 +2,8 @@ const renderQueue = "render";
 
 const cvPdfJob = "cv-pdf";
 
+type TRenderJob = { force: boolean };
+
 const cvPdf = {
   path: "/cv",
   key: "billy-watson-cv.pdf",
@@ -19,3 +21,4 @@ const jobOptions = {
 } as const;
 
 export { renderQueue, cvPdfJob, cvPdf, jobOptions };
+export type { TRenderJob };
