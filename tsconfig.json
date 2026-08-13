@@ -2,7 +2,9 @@
   "compilerOptions": {
     "module": "preserve",
     "target": "ES2023",
-    "lib": ["ES2023"],
+    // DOM because page.evaluate callbacks are serialised into the browser and
+    // legitimately reference document — see src/render/pdf.ts
+    "lib": ["ES2023", "DOM"],
     "moduleResolution": "bundler",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
