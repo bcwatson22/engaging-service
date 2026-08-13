@@ -2,7 +2,12 @@ import { InjectQueue } from "@nestjs/bullmq";
 import { Injectable, Logger } from "@nestjs/common";
 import type { Queue } from "bullmq";
 
-import { cvPdfJob, jobOptions, renderQueue } from "./render.constants";
+import {
+  cvPdfJob,
+  jobOptions,
+  renderQueue,
+  type TRenderJob,
+} from "./render.constants";
 
 const missingIdMessage = "The queue accepted the job without returning an id";
 
@@ -13,13 +18,19 @@ export class RenderService {
   constructor(@InjectQueue(renderQueue) private readonly queue: Queue) {}
 
   /* Returns as soon as the job is durable in Redis — the render itself takes
-     10–20 seconds, far longer than any webhook sender will wait. */
-  async enqueueCvPdf(): Promise<string> {
-    const { id } = await this.queue.add(cvPdfJob, {}, jobOptions);
+     10–20 seconds, far longer than any webhook sender will wait.
+
+     `force` skips the unchanged-content check. A CMS publish should never set
+     it, because waiting for the content to change is the entire point; a
+     manual re-render after a print-stylesheet change must. */
+  async enqueueCvPdf(force = false): Promise<string> {
+    const data: TRenderJob = { force };
+
+    const { id } = await this.queue.add(cvPdfJob, data, jobOptions);
 
     if (!id) throw new Error(missingIdMessage);
 
-    this.logger.log(`Queued ${cvPdfJob} as ${id}`);
+    this.logger.log(`Queued ${cvPdfJob} as ${id}${force ? " (forced)" : ""}`);
 
     return id;
   }
