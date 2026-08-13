@@ -22,3 +22,12 @@ jobs:
       # --coverage, so the 100% thresholds in vitest.config.mts are enforced
       - run: pnpm coverage
       - run: pnpm build
+
+  image:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      # The deployed artifact is the image, not the dist directory, so a green
+      # `pnpm build` on its own proves very little about what actually ships.
+      - run: docker build -t engaging-service .
