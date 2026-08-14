@@ -38,11 +38,11 @@ pnpm install && pnpm dev
 
 ## Endpoints
 
-| Route                    | Trigger       | Notes                                                                               |
-| ------------------------ | ------------- | ----------------------------------------------------------------------------------- |
+| Route                    | Trigger       | Notes                                                                                         |
+| ------------------------ | ------------- | --------------------------------------------------------------------------------------------- |
 | `POST /webhooks/hygraph` | A CMS publish | Verifies `gcms-signature`. Queues every artifact, each waiting for its own content to change. |
-| `POST /render`           | You, by hand  | Guarded by `x-render-secret`. Forces a render, skipping the content check.          |
-| `GET /health`            | The platform  | Readiness.                                                                          |
+| `POST /render`           | You, by hand  | Guarded by `x-render-secret`. Forces a render, skipping the content check.                    |
+| `GET /health`            | The platform  | Readiness.                                                                                    |
 
 Trigger a render by hand:
 
