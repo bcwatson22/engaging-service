@@ -6,9 +6,15 @@ primary_region = "lhr"
 [http_service]
 internal_port = 3000
 force_https = true
-# Renders are triggered by webhook, not by traffic, so the machine can sleep
-# between them. Suspend rather than stop keeps the wake fast.
-auto_stop_machines = "suspend"
+# Renders are triggered by webhook, not by traffic, so the machine sleeps
+# between them.
+#
+# Stop rather than suspend: suspend restores the process with its memory
+# intact, including Redis sockets that Upstash closed while it slept, so the
+# first command after a wake fails on a dead connection. A stopped machine
+# cold-boots and dials fresh. The extra second or two costs nothing here,
+# because nothing user-facing waits on this service.
+auto_stop_machines = "stop"
 auto_start_machines = true
 min_machines_running = 0
 
