@@ -1,4 +1,4 @@
-import { Processor, WorkerHost } from "@nestjs/bullmq";
+import { OnWorkerEvent, Processor, WorkerHost } from "@nestjs/bullmq";
 import { Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { Job } from "bullmq";
@@ -42,6 +42,23 @@ export class RenderProcessor extends WorkerHost {
     return job.name === startupImagesJob
       ? await this.startupImages(job)
       : await this.cvPdf(job);
+  }
+
+  /* Without these, a thrown job is silent: BullMQ catches it, schedules a
+     retry and emits an event that nothing was listening for. Every failure
+     looked like the job had simply never run. */
+  @OnWorkerEvent("failed")
+  onFailed(job: Job<TRenderJob>, error: Error): void {
+    const of = job.opts.attempts ?? 1;
+
+    this.logger.warn(
+      `${job.name} #${job.id} attempt ${job.attemptsMade}/${of}: ${error.message}`,
+    );
+  }
+
+  @OnWorkerEvent("completed")
+  onCompleted(job: Job<TRenderJob>, result: string): void {
+    this.logger.log(`${job.name} #${job.id} finished: ${result}`);
   }
 
   private async cvPdf(job: Job<TRenderJob>): Promise<string> {
@@ -121,9 +138,17 @@ export class RenderProcessor extends WorkerHost {
   ): Promise<string> {
     const hash = await fetchCombinedHash(urls);
 
-    if (job.data.force) return hash;
+    if (job.data.force) {
+      this.logger.log(`Forced, skipping the content check for ${key}`);
+
+      return hash;
+    }
 
     const previous = await this.hashes.get(key);
+
+    this.logger.log(
+      `${key}: live ${hash.slice(0, 8)}, last rendered ${previous?.slice(0, 8) ?? "none"}`,
+    );
 
     if (previous === hash) throw new Error(unchangedMessage);
 

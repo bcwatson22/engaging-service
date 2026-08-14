@@ -212,3 +212,50 @@ describe("RenderProcessor", () => {
     expect(captureStartupImages).not.toHaveBeenCalled();
   });
 });
+
+describe("worker events", () => {
+  const jobWith = (overrides: Partial<Job<TRenderJob>>) =>
+    ({
+      id: "job-1",
+      name: cvPdfJob,
+      attemptsMade: 1,
+      opts: { attempts: 5 },
+      ...overrides,
+    }) as Job<TRenderJob>;
+
+  it("reports a failure, which BullMQ otherwise swallows entirely", async () => {
+    const { processor } = await setup();
+    const warn = vi.spyOn(processor["logger"], "warn");
+
+    processor.onFailed(jobWith({}), new Error("boom"));
+
+    expect(warn).toHaveBeenNthCalledWith(
+      1,
+      `${cvPdfJob} #job-1 attempt 1/5: boom`,
+    );
+  });
+
+  it("falls back to a single attempt when the job carries no retry policy", async () => {
+    const { processor } = await setup();
+    const warn = vi.spyOn(processor["logger"], "warn");
+
+    processor.onFailed(jobWith({ opts: {} }), new Error("boom"));
+
+    expect(warn).toHaveBeenNthCalledWith(
+      1,
+      `${cvPdfJob} #job-1 attempt 1/1: boom`,
+    );
+  });
+
+  it("reports what a completed job produced", async () => {
+    const { processor } = await setup();
+    const log = vi.spyOn(processor["logger"], "log");
+
+    processor.onCompleted(jobWith({}), "22 startup images");
+
+    expect(log).toHaveBeenNthCalledWith(
+      1,
+      `${cvPdfJob} #job-1 finished: 22 startup images`,
+    );
+  });
+});
