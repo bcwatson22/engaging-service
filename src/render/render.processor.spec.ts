@@ -4,24 +4,40 @@ import type { Job } from "bullmq";
 
 import { StorageService } from "../storage/storage.service";
 import { launch } from "./browser";
-import { fetchContentHash } from "./content-hash";
+import { fetchCombinedHash } from "./content-hash";
 import { HashStore } from "./hash.store";
 import { renderPdf } from "./pdf";
-import { cvPdf, type TRenderJob } from "./render.constants";
+import {
+  cvPdf,
+  cvPdfJob,
+  startupImages,
+  startupImagesJob,
+  type TRenderJob,
+} from "./render.constants";
 import { RenderProcessor, unchangedMessage } from "./render.processor";
+import { captureStartupImages, contentType } from "./startup-images";
 
 vi.mock("./browser", () => ({ launch: vi.fn<() => Promise<unknown>>() }));
 vi.mock("./pdf", () => ({ renderPdf: vi.fn<() => Promise<Uint8Array>>() }));
 vi.mock("./content-hash", () => ({
-  fetchContentHash: vi.fn<() => Promise<string>>(),
+  fetchCombinedHash: vi.fn<() => Promise<string>>(),
+}));
+vi.mock("./startup-images", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  captureStartupImages: vi.fn<() => Promise<unknown[]>>(),
 }));
 
 const siteUrl = "https://www.engaging.engineering";
 const uploadedUrl = "https://artifacts.example.com/billy-watson-cv.pdf";
 const freshHash = "fresh";
 
-const jobFor = (force = false) =>
-  ({ id: "job-1", data: { force } }) as Job<TRenderJob>;
+const jobFor = (force = false, name: string = cvPdfJob) =>
+  ({ id: "job-1", name, data: { force } }) as Job<TRenderJob>;
+
+const captured = [
+  { key: "startup-home-1320x2868.png", image: Buffer.from("a") },
+  { key: "startup-cv-1320x2868.png", image: Buffer.from("b") },
+];
 
 const setup = async (
   options: { stored?: string | null; hash?: string } = {},
@@ -36,7 +52,8 @@ const setup = async (
 
   vi.mocked(launch).mockResolvedValue({ close } as never);
   vi.mocked(renderPdf).mockResolvedValue(pdf);
-  vi.mocked(fetchContentHash).mockResolvedValue(options.hash ?? freshHash);
+  vi.mocked(fetchCombinedHash).mockResolvedValue(options.hash ?? freshHash);
+  vi.mocked(captureStartupImages).mockResolvedValue(captured);
 
   const module = await Test.createTestingModule({
     providers: [
@@ -145,5 +162,53 @@ describe("RenderProcessor", () => {
 
     await expect(processor.process(jobFor())).rejects.toThrow("no bucket");
     expect(set).not.toHaveBeenCalled();
+  });
+
+  it("captures startup images when that is the job", async () => {
+    const { processor } = await setup();
+
+    await processor.process(jobFor(false, startupImagesJob));
+
+    expect(captureStartupImages).toHaveBeenCalledTimes(1);
+  });
+
+  it("uploads every captured startup image", async () => {
+    const { processor, upload } = await setup();
+
+    await processor.process(jobFor(false, startupImagesJob));
+
+    expect(upload).toHaveBeenNthCalledWith(
+      1,
+      captured[0].key,
+      captured[0].image,
+      contentType,
+    );
+    expect(upload).toHaveBeenCalledTimes(captured.length);
+  });
+
+  it("reports how many startup images were produced", async () => {
+    const { processor } = await setup();
+
+    await expect(
+      processor.process(jobFor(false, startupImagesJob)),
+    ).resolves.toBe(`${captured.length} startup images`);
+  });
+
+  it("records the startup images under their own hash key", async () => {
+    const { processor, set } = await setup();
+
+    await processor.process(jobFor(false, startupImagesJob));
+
+    expect(set).toHaveBeenNthCalledWith(1, startupImages.key, freshHash);
+  });
+
+  it("does not capture startup images while the pages are unchanged", async () => {
+    const { processor } = await setup({ stored: freshHash });
+
+    await expect(
+      processor.process(jobFor(false, startupImagesJob)),
+    ).rejects.toThrow(unchangedMessage);
+
+    expect(captureStartupImages).not.toHaveBeenCalled();
   });
 });
