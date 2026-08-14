@@ -18,7 +18,13 @@ const startupPages = [
   { name: "cv", path: "/cv" },
 ] as const;
 
-const contentType = "image/png";
+/* A day, because nobody notices a splash screen that lags behind the site
+   by an afternoon, and these are fetched in bursts when a device installs
+   the PWA — exactly when a cache earns its keep. */
+const objectHeaders = {
+  contentType: "image/png",
+  cacheControl: "public, max-age=86400, stale-while-revalidate=604800",
+} as const;
 
 type TStartupImage = { key: string; image: Uint8Array };
 
@@ -80,7 +86,7 @@ export {
   captureDevice,
   startupPages,
   settleDelay,
-  contentType,
+  objectHeaders,
   wait,
 };
 export type { TStartupImage };

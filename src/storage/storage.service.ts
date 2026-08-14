@@ -7,6 +7,13 @@ import type { TEnv } from "../config/env.schema";
 /* R2 is S3-compatible but not regional, and rejects a real region name. */
 const region = "auto";
 
+/* Everything that describes how an object is served, kept together so a new
+   artifact type cannot be added with a content type but no cache policy. */
+type TObjectHeaders = {
+  contentType: string;
+  cacheControl: string;
+};
+
 const endpointFor = (accountId: string): string =>
   `https://${accountId}.r2.cloudflarestorage.com`;
 
@@ -39,7 +46,7 @@ export class StorageService {
   async upload(
     key: string,
     body: Uint8Array,
-    contentType: string,
+    { contentType, cacheControl }: TObjectHeaders,
   ): Promise<string> {
     await this.client.send(
       new PutObjectCommand({
@@ -47,6 +54,9 @@ export class StorageService {
         Key: key,
         Body: body,
         ContentType: contentType,
+        /* R2 sets none of its own, and without one Vercel proxies every
+           request straight through to the bucket rather than caching it. */
+        CacheControl: cacheControl,
       }),
     );
 
@@ -57,3 +67,4 @@ export class StorageService {
 }
 
 export { region, endpointFor };
+export type { TObjectHeaders };

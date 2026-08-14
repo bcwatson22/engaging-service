@@ -12,10 +12,14 @@ type TRenderJob = { force: boolean };
 const isArtifact = (value: string): value is TArtifact =>
   (artifacts as readonly string[]).includes(value);
 
+/* Short, because a CV can be updated minutes before someone is sent the
+   link. stale-while-revalidate lets the edge answer instantly and refresh
+   behind the request, so freshness costs nobody a wait. */
 const cvPdf = {
   path: "/cv",
   key: "billy-watson-cv.pdf",
   contentType: "application/pdf",
+  cacheControl: "public, max-age=600, stale-while-revalidate=3600",
 } as const;
 
 /* Both pages are captured as splash screens, so a change to either should
