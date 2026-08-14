@@ -1,18 +1,13 @@
 import { BullModule } from "@nestjs/bullmq";
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import IORedis from "ioredis";
 
 import type { TEnv } from "./config/env.schema";
 import { validate } from "./config/env.schema";
 import { HealthModule } from "./health/health.module";
+import { createConnection } from "./redis/connection";
 import { RenderModule } from "./render/render.module";
 import { WebhooksModule } from "./webhooks/webhooks.module";
-
-/* BullMQ workers issue blocking reads, which ioredis will otherwise abort
-   after its default retry limit. null disables that ceiling, as BullMQ
-   requires. */
-const connectionOptions = { maxRetriesPerRequest: null };
 
 @Module({
   imports: [
@@ -20,10 +15,7 @@ const connectionOptions = { maxRetriesPerRequest: null };
     BullModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService<TEnv, true>) => ({
-        connection: new IORedis(
-          config.get("REDIS_URL", { infer: true }),
-          connectionOptions,
-        ),
+        connection: createConnection(config.get("REDIS_URL", { infer: true })),
       }),
     }),
     HealthModule,
@@ -32,5 +24,3 @@ const connectionOptions = { maxRetriesPerRequest: null };
   ],
 })
 export class AppModule {}
-
-export { connectionOptions };

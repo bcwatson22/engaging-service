@@ -1,10 +1,12 @@
 import { ConfigService } from "@nestjs/config";
 import { Test } from "@nestjs/testing";
-import IORedis from "ioredis";
 
+import { createConnection } from "../redis/connection";
 import { HashStore, prefix } from "./hash.store";
 
-vi.mock("ioredis", () => ({ default: vi.fn<(url: string) => unknown>() }));
+vi.mock("../redis/connection", () => ({
+  createConnection: vi.fn<(url: string) => unknown>(),
+}));
 
 const url = "redis://127.0.0.1:6379";
 const key = "billy-watson-cv.pdf";
@@ -16,11 +18,11 @@ const setup = async (options: { stored?: string | null } = {}) => {
   const set = vi.fn<() => Promise<"OK">>().mockResolvedValue("OK");
   const quit = vi.fn<() => Promise<"OK">>().mockResolvedValue("OK");
 
-  (IORedis as unknown as ReturnType<typeof vi.fn>).mockImplementation(
-    function () {
-      return { get, set, quit };
-    },
-  );
+  vi.mocked(createConnection).mockReturnValue({
+    get,
+    set,
+    quit,
+  } as never);
 
   const module = await Test.createTestingModule({
     providers: [
@@ -35,10 +37,10 @@ const setup = async (options: { stored?: string | null } = {}) => {
 describe("HashStore", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("connects to the configured redis", async () => {
+  it("connects through the shared factory, so it gets the same resilience settings", async () => {
     await setup();
 
-    expect(IORedis).toHaveBeenNthCalledWith(1, url);
+    expect(createConnection).toHaveBeenNthCalledWith(1, url);
   });
 
   it("returns null when nothing has been rendered yet", async () => {

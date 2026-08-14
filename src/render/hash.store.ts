@@ -1,8 +1,9 @@
 import { Injectable, type OnModuleDestroy } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import IORedis from "ioredis";
+import type IORedis from "ioredis";
 
 import type { TEnv } from "../config/env.schema";
+import { createConnection } from "../redis/connection";
 
 const prefix = "content-hash";
 
@@ -13,7 +14,7 @@ export class HashStore implements OnModuleDestroy {
   private readonly client: IORedis;
 
   constructor(config: ConfigService<TEnv, true>) {
-    this.client = new IORedis(config.get("REDIS_URL", { infer: true }));
+    this.client = createConnection(config.get("REDIS_URL", { infer: true }));
   }
 
   async get(key: string): Promise<string | null> {
