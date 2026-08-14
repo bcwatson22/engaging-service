@@ -3,12 +3,19 @@ import {
   fetchCombinedHash,
   fetchContentHash,
   hashContent,
-  missingMainMessage,
+  missingBodyMessage,
   statusMessage,
 } from "./content-hash";
 
-const page = (content: string, extra = "") =>
-  `<html><head>${extra}</head><body><main class="cv main">${content}</main><script>self.__next_f.push([1,"build-abc"])</script></body></html>`;
+/* Mirrors what streaming SSR actually emits: a skeleton <main>, the real
+   <main>, and a late Suspense chunk sitting outside both. */
+const page = (content: string, extra = "", late = "") =>
+  `<html><head>${extra}</head><body>` +
+  `<main class="home main"><div class="skeleton">Loading...</div></main>` +
+  `<main class="cv main">${content}</main>` +
+  `<div hidden id="S:8">${late}</div>` +
+  `<script>self.__next_f.push([1,"build-abc"])</script>` +
+  `</body></html>`;
 
 const setup = (
   options: { html?: string; ok?: boolean; status?: number } = {},
@@ -26,25 +33,42 @@ const setup = (
 };
 
 describe("extractContent", () => {
-  it("takes only the main element", () => {
-    expect(extractContent(page("<h1>Billy</h1>"))).toBe("<h1>Billy</h1>");
+  it("keeps the rendered markup", () => {
+    expect(extractContent(page("<h1>Billy</h1>"))).toContain("<h1>Billy</h1>");
   });
 
-  it("drops scripts inside the content", () => {
+  /* The regression that froze every artifact: the first <main> is a loading
+     skeleton, so hashing it alone never changed. */
+  it("does not stop at the first main, which is a loading skeleton", () => {
+    const first = extractContent(page("<h1>Billy</h1>"));
+    const second = extractContent(page("<h1>Someone else</h1>"));
+
+    expect(first).not.toBe(second);
+  });
+
+  /* Late Suspense content arrives as a sibling of <main>, not inside it. */
+  it("keeps content streamed in after the main elements", () => {
+    const content = extractContent(page("<h1>Billy</h1>", "", "Havas Lynx"));
+
+    expect(content).toContain("Havas Lynx");
+  });
+
+  it("drops scripts, whose chunk names change on every deploy", () => {
     const content = extractContent(page("<h1>Billy</h1><script>x()</script>"));
 
-    expect(content).toBe("<h1>Billy</h1>");
+    expect(content).not.toContain("x()");
+    expect(content).not.toContain("__next_f");
   });
 
   it("normalises whitespace so formatting changes do not register", () => {
-    expect(extractContent(page("<h1>\n  Billy\n</h1>"))).toBe(
+    expect(extractContent(page("<h1>\n  Billy\n</h1>"))).toContain(
       "<h1> Billy </h1>",
     );
   });
 
-  it("throws when there is no main element", () => {
-    expect(() => extractContent("<html><body>nope</body></html>")).toThrow(
-      missingMainMessage,
+  it("throws when there is no body to hash", () => {
+    expect(() => extractContent("<html>nope</html>")).toThrow(
+      missingBodyMessage,
     );
   });
 });
@@ -56,7 +80,7 @@ describe("hashContent", () => {
     );
   });
 
-  it("ignores changes outside the main element", () => {
+  it("ignores head changes, whose preload hrefs carry build hashes", () => {
     expect(hashContent(page("<h1>Billy</h1>", "<title>a</title>"))).toBe(
       hashContent(page("<h1>Billy</h1>", "<title>b</title>")),
     );
