@@ -38,11 +38,12 @@ pnpm install && pnpm dev
 
 ## Endpoints
 
-| Route                    | Trigger       | Notes                                                                                         |
-| ------------------------ | ------------- | --------------------------------------------------------------------------------------------- |
-| `POST /webhooks/hygraph` | A CMS publish | Verifies `gcms-signature`. Queues every artifact, each waiting for its own content to change. |
-| `POST /render`           | You, by hand  | Guarded by `x-render-secret`. Forces a render, skipping the content check.                    |
-| `GET /health`            | The platform  | Readiness.                                                                                    |
+| Route                         | Trigger       | Notes                                                                                         |
+| ----------------------------- | ------------- | --------------------------------------------------------------------------------------------- |
+| `POST /webhooks/hygraph`      | A CMS publish | Verifies `gcms-signature`. Queues every artifact, each waiting for its own content to change. |
+| `POST /render/cv-pdf`         | You, by hand  | Guarded by `x-render-secret`. Forces a render, skipping the content check.                    |
+| `POST /render/startup-images` | You, by hand  | As above, for the 22 PWA splash screens.                                                      |
+| `GET /health`                 | The platform  | Readiness.                                                                                    |
 
 Trigger a render by hand:
 
