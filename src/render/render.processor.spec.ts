@@ -15,7 +15,7 @@ import {
   type TRenderJob,
 } from "./render.constants";
 import { RenderProcessor, unchangedMessage } from "./render.processor";
-import { captureStartupImages, contentType } from "./startup-images";
+import { captureStartupImages, objectHeaders } from "./startup-images";
 
 vi.mock("./browser", () => ({ launch: vi.fn<() => Promise<unknown>>() }));
 vi.mock("./pdf", () => ({ renderPdf: vi.fn<() => Promise<Uint8Array>>() }));
@@ -87,12 +87,7 @@ describe("RenderProcessor", () => {
 
     await processor.process(jobFor());
 
-    expect(upload).toHaveBeenNthCalledWith(
-      1,
-      cvPdf.key,
-      pdf,
-      cvPdf.contentType,
-    );
+    expect(upload).toHaveBeenNthCalledWith(1, cvPdf.key, pdf, cvPdf);
   });
 
   it("returns the public url of the uploaded document", async () => {
@@ -181,7 +176,7 @@ describe("RenderProcessor", () => {
       1,
       captured[0].key,
       captured[0].image,
-      contentType,
+      objectHeaders,
     );
     expect(upload).toHaveBeenCalledTimes(captured.length);
   });

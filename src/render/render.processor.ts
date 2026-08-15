@@ -17,7 +17,7 @@ import {
   startupImagesJob,
   type TRenderJob,
 } from "./render.constants";
-import { captureStartupImages, contentType } from "./startup-images";
+import { captureStartupImages, objectHeaders } from "./startup-images";
 
 /* One at a time: two Chrome instances on a shared-CPU machine will contend
    for memory and make both renders slower and less reliable. */
@@ -69,11 +69,7 @@ export class RenderProcessor extends WorkerHost {
 
     return await this.withBrowser(async (browser) => {
       const pdf = await renderPdf(browser, url);
-      const uploaded = await this.storage.upload(
-        cvPdf.key,
-        pdf,
-        cvPdf.contentType,
-      );
+      const uploaded = await this.storage.upload(cvPdf.key, pdf, cvPdf);
 
       await this.hashes.set(cvPdf.key, hash);
 
@@ -96,7 +92,7 @@ export class RenderProcessor extends WorkerHost {
       /* Sequential, so a failure part-way leaves the earlier images uploaded
          and the hash unrecorded — the retry simply overwrites them. */
       for (const { key, image } of captured) {
-        await this.storage.upload(key, image, contentType);
+        await this.storage.upload(key, image, objectHeaders);
       }
 
       await this.hashes.set(startupImages.key, hash);

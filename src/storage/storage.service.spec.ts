@@ -4,6 +4,11 @@ import { Test } from "@nestjs/testing";
 
 import { endpointFor, region, StorageService } from "./storage.service";
 
+const headers = {
+  contentType: "application/pdf",
+  cacheControl: "public, max-age=600",
+};
+
 vi.mock("@aws-sdk/client-s3", () => ({
   S3Client: vi.fn<(config: unknown) => unknown>(),
   PutObjectCommand: vi.fn<(input: unknown) => unknown>(),
@@ -67,13 +72,14 @@ describe("StorageService", () => {
     const { service } = await setup();
     const body = Buffer.from("pdf");
 
-    await service.upload("billy-watson-cv.pdf", body, "application/pdf");
+    await service.upload("billy-watson-cv.pdf", body, headers);
 
     expect(PutObjectCommand).toHaveBeenNthCalledWith(1, {
       Bucket: env.R2_BUCKET,
       Key: "billy-watson-cv.pdf",
       Body: body,
-      ContentType: "application/pdf",
+      ContentType: headers.contentType,
+      CacheControl: headers.cacheControl,
     });
   });
 
@@ -81,11 +87,7 @@ describe("StorageService", () => {
     const { service } = await setup();
 
     await expect(
-      service.upload(
-        "billy-watson-cv.pdf",
-        Buffer.from("pdf"),
-        "application/pdf",
-      ),
+      service.upload("billy-watson-cv.pdf", Buffer.from("pdf"), headers),
     ).resolves.toBe(`${env.R2_PUBLIC_BASE}/billy-watson-cv.pdf`);
   });
 
@@ -95,7 +97,7 @@ describe("StorageService", () => {
     send.mockRejectedValue(new Error("no bucket"));
 
     await expect(
-      service.upload("a.pdf", Buffer.from("pdf"), "application/pdf"),
+      service.upload("a.pdf", Buffer.from("pdf"), headers),
     ).rejects.toThrow("no bucket");
   });
 });
