@@ -26,15 +26,27 @@ const startupImages = {
   key: "startup-images",
 } as const;
 
-/* Retries exist for the transient case — a cold site, a slow asset, a browser
-   that failed to launch. Exponential from 10s gives the upstream time to
-   recover without a job sitting in the queue for hours. */
+/* The machine sleeps after roughly two minutes without traffic, and a
+   delayed retry does not wake it — an incoming request does, a timer in Redis
+   does not. So the whole ladder has to fit inside the window the machine is
+   awake for, or its tail is stranded until something else happens to wake the
+   box, leaving an artifact silently stale until the next publish.
+
+   Five attempts from 5s gives 5 + 10 + 20 + 40 = 75 seconds, comfortably
+   inside it. At 10s it was 150 seconds and the last two attempts could fall
+   past the machine's bedtime. */
+const idleTimeout = 120_000;
+
 const jobOptions = {
   attempts: 5,
-  backoff: { type: "exponential", delay: 10_000 },
+  backoff: { type: "exponential", delay: 5_000 },
   removeOnComplete: 20,
   removeOnFail: 50,
 } as const;
+
+/* Sum of an exponential ladder: delay * (2^(attempts-1) - 1). */
+const totalBackoff = (): number =>
+  jobOptions.backoff.delay * (2 ** (jobOptions.attempts - 1) - 1);
 
 export {
   renderQueue,
@@ -45,5 +57,7 @@ export {
   cvPdf,
   startupImages,
   jobOptions,
+  idleTimeout,
+  totalBackoff,
 };
 export type { TRenderJob, TArtifact };
