@@ -41,6 +41,7 @@ pnpm install && pnpm dev
 | Route                         | Trigger       | Notes                                                                                         |
 | ----------------------------- | ------------- | --------------------------------------------------------------------------------------------- |
 | `POST /webhooks/hygraph`      | A CMS publish | Verifies `gcms-signature`. Queues every artifact, each waiting for its own content to change. |
+| `POST /contact`               | A visitor     | The site's contact form. CORS-locked to `SITE_URL`. See below.                                |
 | `POST /render/cv-pdf`         | You, by hand  | Guarded by `x-render-secret`. Forces a render, skipping the content check.                    |
 | `POST /render/startup-images` | You, by hand  | As above, for the 22 PWA splash screens.                                                      |
 | `GET /health`                 | The platform  | Readiness.                                                                                    |
@@ -58,3 +59,50 @@ public URL.
 The manual route forces the render deliberately: it exists for re-rendering
 after a change the CMS knows nothing about, such as a print-stylesheet tweak,
 which the unchanged-content check would otherwise reject.
+
+## The contact endpoint
+
+`POST /contact` is the one route a person waits on, which makes it the
+exception to the rule below — so it is worth setting out why it is here.
+
+Submissions are filtered before anything is sent. A hidden honeypot field and
+a check on how long the form was open catch automated posts; both answer `202`
+with the same body a real submission gets, because telling a bot which signal
+caught it is how it learns to avoid that signal. Genuine submissions are then
+rate-limited in Redis, by client address and by the address they gave, before
+the send is attempted rather than after — so a provider outage cannot be
+retried into an unbounded number of attempts.
+
+Mail goes out through Resend from a verified address on this domain, with the
+visitor in `reply_to`. Sending _as_ the visitor would fail their domain's DMARC
+and be refused by Resend anyway; this way a reply in any mail client reaches
+the person who wrote.
+
+### Why the machine no longer sleeps
+
+This service used to scale to zero between renders. It was measured at **21.3
+seconds to cold-boot against 46ms warm** — the image carries Chrome, and that
+is what a browser costs at startup. Renders never noticed, because nothing
+waits on them. A contact form does, and since it is used a few times a month
+it would have found the machine cold essentially every time.
+
+So `fly.toml` now keeps one machine resident. That cost falls when the render
+half moves out and this tier stops shipping a browser. It also retires two
+bugs rather than working around them: the dead Upstash sockets handled in
+`fix/redis-resilience` and the truncated retry window in
+`fix/retry-within-idle-window` were both consequences of sleeping.
+
+### The amended principle
+
+The original rule for this service was: _it only ever removes things from the
+critical path; if a feature would make the live site depend on this container,
+it does not belong here._
+
+A contact endpoint appears to break that, so the rule is now stated more
+precisely: **this service never sits between a visitor and content, and any
+request-time feature it owns must degrade to something that needs no server.**
+
+Pages stay prerendered and webhook-revalidated, so nothing anybody reads passes
+through here. And the contact form is an enhancement over a capability the site
+already had — the CV carries a `mailto:` and a `tel:` link. If this service is
+down, the form falls back to that link rather than showing an error.

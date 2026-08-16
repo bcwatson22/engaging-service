@@ -6,17 +6,25 @@ primary_region = "lhr"
 [http_service]
 internal_port = 3000
 force_https = true
-# Renders are triggered by webhook, not by traffic, so the machine sleeps
-# between them.
+# The machine used to sleep between renders, since nothing user-facing waited
+# on it. POST /contact changed that, and a measurement settled it: this image
+# carries Chrome, and cold-booting it takes 21.3 seconds against 46ms warm.
+# Contact submissions arrive a few times a month — always well after the
+# machine would have slept — so every single one would have paid the full boot.
 #
-# Stop rather than suspend: suspend restores the process with its memory
-# intact, including Redis sockets that Upstash closed while it slept, so the
-# first command after a wake fails on a dead connection. A stopped machine
-# cold-boots and dials fresh. The extra second or two costs nothing here,
-# because nothing user-facing waits on this service.
+# Hence one machine always resident. It costs a few dollars a month, and drops
+# further when the render half moves out and this tier no longer ships a
+# browser. It also retires two bugs rather than working around them: the dead
+# Upstash sockets handled in `fix/redis-resilience` and the truncated retry
+# window in `fix/retry-within-idle-window` were both consequences of sleeping.
+#
+# Stop rather than suspend is kept for the same reason it was chosen: suspend
+# restores the process with its memory intact, including Redis sockets Upstash
+# closed meanwhile, so the first command after a wake lands on a dead
+# connection. It only applies now if the count is ever taken back to zero.
 auto_stop_machines = "stop"
 auto_start_machines = true
-min_machines_running = 0
+min_machines_running = 1
 
 [[http_service.checks]]
 interval = "30s"
