@@ -1,11 +1,11 @@
-import type { ExecutionContext } from "@nestjs/common";
-import { UnauthorizedException } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import { Test } from "@nestjs/testing";
+import type { ExecutionContext } from '@nestjs/common';
+import { UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Test } from '@nestjs/testing';
 
-import { SecretGuard, secretHeader } from "./secret.guard";
+import { SecretGuard, secretHeader } from './secret.guard';
 
-const secret = "correct-horse-battery-staple";
+const secret = 'correct-horse-battery-staple';
 
 const contextFor = (headers: Record<string, string>): ExecutionContext =>
   ({
@@ -23,8 +23,8 @@ const setup = async () => {
   return { guard: module.get(SecretGuard) };
 };
 
-describe("SecretGuard", () => {
-  it("allows a request carrying the shared secret", async () => {
+describe('SecretGuard', () => {
+  it('allows a request carrying the shared secret', async () => {
     const { guard } = await setup();
 
     expect(guard.canActivate(contextFor({ [secretHeader]: secret }))).toBe(
@@ -32,15 +32,15 @@ describe("SecretGuard", () => {
     );
   });
 
-  it("rejects a request with the wrong secret", async () => {
+  it('rejects a request with the wrong secret', async () => {
     const { guard } = await setup();
 
     expect(() =>
-      guard.canActivate(contextFor({ [secretHeader]: "guess" })),
+      guard.canActivate(contextFor({ [secretHeader]: 'guess' })),
     ).toThrow(UnauthorizedException);
   });
 
-  it("rejects a request with no secret at all", async () => {
+  it('rejects a request with no secret at all', async () => {
     const { guard } = await setup();
 
     expect(() => guard.canActivate(contextFor({}))).toThrow(

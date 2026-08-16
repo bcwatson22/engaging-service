@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash } from 'node:crypto';
 
 /* The body is hashed, not <main>.
 
@@ -21,8 +21,8 @@ const bodyPattern = /<body[^>]*>([\s\S]*)<\/body>/;
 const scriptPattern = /<script[\s\S]*?<\/script>/g;
 const whitespacePattern = /\s+/g;
 
-const missingBodyMessage = "Could not find a <body> element to hash";
-const statusMessage = "The site responded with status";
+const missingBodyMessage = 'Could not find a <body> element to hash';
+const statusMessage = 'The site responded with status';
 
 const extractContent = (html: string): string => {
   const match = html.match(bodyPattern);
@@ -30,17 +30,17 @@ const extractContent = (html: string): string => {
   if (!match) throw new Error(missingBodyMessage);
 
   return match[1]
-    .replace(scriptPattern, "")
-    .replace(whitespacePattern, " ")
+    .replace(scriptPattern, '')
+    .replace(whitespacePattern, ' ')
     .trim();
 };
 
 const hashContent = (html: string): string =>
-  createHash("sha256").update(extractContent(html)).digest("hex");
+  createHash('sha256').update(extractContent(html)).digest('hex');
 
 const fetchContentHash = async (url: string): Promise<string> => {
   const response = await fetch(url, {
-    headers: { "cache-control": "no-cache" },
+    headers: { 'cache-control': 'no-cache' },
   });
 
   if (!response.ok) throw new Error(`${statusMessage} ${response.status}`);
@@ -53,7 +53,7 @@ const fetchContentHash = async (url: string): Promise<string> => {
 const fetchCombinedHash = async (urls: string[]): Promise<string> => {
   const hashes = await Promise.all(urls.map((url) => fetchContentHash(url)));
 
-  return createHash("sha256").update(hashes.join(":")).digest("hex");
+  return createHash('sha256').update(hashes.join(':')).digest('hex');
 };
 
 export {

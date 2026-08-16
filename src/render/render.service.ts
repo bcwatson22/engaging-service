@@ -1,6 +1,6 @@
-import { InjectQueue } from "@nestjs/bullmq";
-import { Injectable, Logger } from "@nestjs/common";
-import type { Queue } from "bullmq";
+import { InjectQueue } from '@nestjs/bullmq';
+import { Injectable, Logger } from '@nestjs/common';
+import type { Queue } from 'bullmq';
 
 import {
   artifacts,
@@ -8,9 +8,9 @@ import {
   renderQueue,
   type TArtifact,
   type TRenderJob,
-} from "./render.constants";
+} from './render.constants';
 
-const missingIdMessage = "The queue accepted the job without returning an id";
+const missingIdMessage = 'The queue accepted the job without returning an id';
 
 @Injectable()
 export class RenderService {
@@ -32,7 +32,7 @@ export class RenderService {
 
     if (!id) throw new Error(missingIdMessage);
 
-    this.logger.log(`Queued ${artifact} as ${id}${force ? " (forced)" : ""}`);
+    this.logger.log(`Queued ${artifact} as ${id}${force ? ' (forced)' : ''}`);
 
     return id;
   }

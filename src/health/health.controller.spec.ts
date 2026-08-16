@@ -1,10 +1,10 @@
-import { type HealthCheckResult, HealthCheckService } from "@nestjs/terminus";
-import { Test } from "@nestjs/testing";
+import { type HealthCheckResult, HealthCheckService } from '@nestjs/terminus';
+import { Test } from '@nestjs/testing';
 
-import { HealthController } from "./health.controller";
+import { HealthController } from './health.controller';
 
 const okResult = {
-  status: "ok",
+  status: 'ok',
   info: {},
   error: {},
   details: {},
@@ -12,7 +12,7 @@ const okResult = {
 
 const setup = async (options: { result?: HealthCheckResult } = {}) => {
   const check = vi
-    .fn<HealthCheckService["check"]>()
+    .fn<HealthCheckService['check']>()
     .mockResolvedValue(options.result ?? okResult);
 
   const module = await Test.createTestingModule({
@@ -23,16 +23,16 @@ const setup = async (options: { result?: HealthCheckResult } = {}) => {
   return { controller: module.get(HealthController), check };
 };
 
-describe("HealthController", () => {
+describe('HealthController', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("returns the health check result", async () => {
+  it('returns the health check result', async () => {
     const { controller } = await setup();
 
     await expect(controller.check()).resolves.toBe(okResult);
   });
 
-  it("runs the check with no indicators registered yet", async () => {
+  it('runs the check with no indicators registered yet', async () => {
     const { controller, check } = await setup();
 
     await controller.check();

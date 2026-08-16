@@ -1,13 +1,13 @@
-import { NotFoundException } from "@nestjs/common";
-import { Test } from "@nestjs/testing";
+import { NotFoundException } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
 
-import { cvPdfJob, startupImagesJob } from "./render.constants";
-import { RenderController } from "./render.controller";
-import { RenderService } from "./render.service";
-import { SecretGuard } from "./secret.guard";
+import { cvPdfJob, startupImagesJob } from './render.constants';
+import { RenderController } from './render.controller';
+import { RenderService } from './render.service';
+import { SecretGuard } from './secret.guard';
 
 const setup = async () => {
-  const enqueue = vi.fn<() => Promise<string>>().mockResolvedValue("job-7");
+  const enqueue = vi.fn<() => Promise<string>>().mockResolvedValue('job-7');
 
   const module = await Test.createTestingModule({
     controllers: [RenderController],
@@ -20,18 +20,18 @@ const setup = async () => {
   return { controller: module.get(RenderController), enqueue };
 };
 
-describe("RenderController", () => {
+describe('RenderController', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("returns the id of the queued job", async () => {
+  it('returns the id of the queued job', async () => {
     const { controller } = await setup();
 
     await expect(controller.trigger(cvPdfJob)).resolves.toEqual({
-      jobId: "job-7",
+      jobId: 'job-7',
     });
   });
 
-  it("forces the render, since a manual trigger may follow a change the CMS does not know about", async () => {
+  it('forces the render, since a manual trigger may follow a change the CMS does not know about', async () => {
     const { controller, enqueue } = await setup();
 
     await controller.trigger(startupImagesJob);
@@ -39,10 +39,10 @@ describe("RenderController", () => {
     expect(enqueue).toHaveBeenNthCalledWith(1, startupImagesJob, true);
   });
 
-  it("rejects an artifact it does not produce", async () => {
+  it('rejects an artifact it does not produce', async () => {
     const { controller } = await setup();
 
-    await expect(controller.trigger("favicon")).rejects.toThrow(
+    await expect(controller.trigger('favicon')).rejects.toThrow(
       NotFoundException,
     );
   });

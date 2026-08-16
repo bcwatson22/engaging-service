@@ -1,19 +1,19 @@
-import type { Browser, Page } from "puppeteer";
+import type { Browser, Page } from 'puppeteer';
 
-import { startupDevices } from "./startup-devices";
+import { startupDevices } from './startup-devices';
 import {
   captureDevice,
   captureStartupImages,
   settleDelay,
   startupPages,
-} from "./startup-images";
+} from './startup-images';
 
-const siteUrl = "https://www.engaging.engineering";
+const siteUrl = 'https://www.engaging.engineering';
 
 const setup = () => {
   const screenshot = vi
     .fn<() => Promise<Uint8Array>>()
-    .mockResolvedValue(Buffer.from("png"));
+    .mockResolvedValue(Buffer.from('png'));
 
   const page = {
     setViewport: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
@@ -29,7 +29,7 @@ const setup = () => {
   return { browser, page, screenshot };
 };
 
-describe("captureDevice", () => {
+describe('captureDevice', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
@@ -54,7 +54,7 @@ describe("captureDevice", () => {
     });
   });
 
-  it("lets animations settle before capturing", async () => {
+  it('lets animations settle before capturing', async () => {
     const { browser, screenshot } = setup();
 
     const capture = captureDevice(browser, siteUrl, startupDevices[0]);
@@ -68,22 +68,22 @@ describe("captureDevice", () => {
     expect(screenshot).toHaveBeenCalledTimes(1);
   });
 
-  it("closes the page even when navigation fails", async () => {
+  it('closes the page even when navigation fails', async () => {
     const { browser, page } = setup();
 
     (page.goto as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new Error("offline"),
+      new Error('offline'),
     );
 
     await expect(
       captureDevice(browser, siteUrl, startupDevices[0]),
-    ).rejects.toThrow("offline");
+    ).rejects.toThrow('offline');
 
     expect(page.close).toHaveBeenCalledTimes(1);
   });
 });
 
-describe("captureStartupImages", () => {
+describe('captureStartupImages', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
@@ -101,7 +101,7 @@ describe("captureStartupImages", () => {
     return await capturing;
   };
 
-  it("captures every device for every page", async () => {
+  it('captures every device for every page', async () => {
     const { browser } = setup();
 
     const captured = await captureAll(browser);
@@ -109,20 +109,20 @@ describe("captureStartupImages", () => {
     expect(captured).toHaveLength(startupDevices.length * startupPages.length);
   });
 
-  it("names each image after its page and pixel dimensions", async () => {
+  it('names each image after its page and pixel dimensions', async () => {
     const { browser } = setup();
 
     const [first] = await captureAll(browser);
 
-    expect(first.key).toBe("startup-home-1320x2868.png");
+    expect(first.key).toBe('startup-home-1320x2868.png');
   });
 
-  it("captures both the home and cv pages", async () => {
+  it('captures both the home and cv pages', async () => {
     const { browser } = setup();
 
     const captured = await captureAll(browser);
-    const pages = new Set(captured.map(({ key }) => key.split("-")[1]));
+    const pages = new Set(captured.map(({ key }) => key.split('-')[1]));
 
-    expect([...pages]).toEqual(["home", "cv"]);
+    expect([...pages]).toEqual(['home', 'cv']);
   });
 });

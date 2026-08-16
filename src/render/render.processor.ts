@@ -1,30 +1,30 @@
-import { OnWorkerEvent, Processor, WorkerHost } from "@nestjs/bullmq";
-import { Logger } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import type { Job } from "bullmq";
-import type { Browser } from "puppeteer";
+import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
+import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type { Job } from 'bullmq';
+import type { Browser } from 'puppeteer';
 
-import type { TEnv } from "../config/env.schema";
-import { StorageService } from "../storage/storage.service";
-import { launch } from "./browser";
-import { fetchCombinedHash } from "./content-hash";
-import { HashStore } from "./hash.store";
-import { renderPdf } from "./pdf";
+import type { TEnv } from '../config/env.schema';
+import { StorageService } from '../storage/storage.service';
+import { launch } from './browser';
+import { fetchCombinedHash } from './content-hash';
+import { HashStore } from './hash.store';
+import { renderPdf } from './pdf';
 import {
   cvPdf,
   renderQueue,
   startupImages,
   startupImagesJob,
   type TRenderJob,
-} from "./render.constants";
-import { captureStartupImages, objectHeaders } from "./startup-images";
+} from './render.constants';
+import { captureStartupImages, objectHeaders } from './startup-images';
 
 /* One at a time: two Chrome instances on a shared-CPU machine will contend
    for memory and make both renders slower and less reliable. */
 const concurrency = 1;
 
 const unchangedMessage =
-  "The page has not changed yet — the site is still revalidating";
+  'The page has not changed yet — the site is still revalidating';
 
 @Processor(renderQueue, { concurrency })
 export class RenderProcessor extends WorkerHost {
@@ -47,7 +47,7 @@ export class RenderProcessor extends WorkerHost {
   /* Without these, a thrown job is silent: BullMQ catches it, schedules a
      retry and emits an event that nothing was listening for. Every failure
      looked like the job had simply never run. */
-  @OnWorkerEvent("failed")
+  @OnWorkerEvent('failed')
   onFailed(job: Job<TRenderJob>, error: Error): void {
     const of = job.opts.attempts ?? 1;
 
@@ -56,7 +56,7 @@ export class RenderProcessor extends WorkerHost {
     );
   }
 
-  @OnWorkerEvent("completed")
+  @OnWorkerEvent('completed')
   onCompleted(job: Job<TRenderJob>, result: string): void {
     this.logger.log(`${job.name} #${job.id} finished: ${result}`);
   }
@@ -86,7 +86,7 @@ export class RenderProcessor extends WorkerHost {
     return await this.withBrowser(async (browser) => {
       const captured = await captureStartupImages(
         browser,
-        this.config.get("SITE_URL", { infer: true }),
+        this.config.get('SITE_URL', { infer: true }),
       );
 
       /* Sequential, so a failure part-way leaves the earlier images uploaded
@@ -102,7 +102,7 @@ export class RenderProcessor extends WorkerHost {
   }
 
   private urlFor(path: string): string {
-    return `${this.config.get("SITE_URL", { infer: true })}${path}`;
+    return `${this.config.get('SITE_URL', { infer: true })}${path}`;
   }
 
   private async withBrowser<Result>(
@@ -143,7 +143,7 @@ export class RenderProcessor extends WorkerHost {
     const previous = await this.hashes.get(key);
 
     this.logger.log(
-      `${key}: live ${hash.slice(0, 8)}, last rendered ${previous?.slice(0, 8) ?? "none"}`,
+      `${key}: live ${hash.slice(0, 8)}, last rendered ${previous?.slice(0, 8) ?? 'none'}`,
     );
 
     if (previous === hash) throw new Error(unchangedMessage);

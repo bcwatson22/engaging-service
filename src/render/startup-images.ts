@@ -1,29 +1,29 @@
-import { Logger } from "@nestjs/common";
-import type { Browser } from "puppeteer";
+import { Logger } from '@nestjs/common';
+import type { Browser } from 'puppeteer';
 
 import {
   getStartupImageKey,
   startupDevices,
   type TStartupDevice,
-} from "./startup-devices";
+} from './startup-devices';
 
-const logger = new Logger("StartupImages");
+const logger = new Logger('StartupImages');
 
 /* Long enough for the particles canvas to mount and entry animations to
    finish. A screenshot taken before that captures a half-faded page. */
 const settleDelay = 2000;
 
 const startupPages = [
-  { name: "home", path: "/" },
-  { name: "cv", path: "/cv" },
+  { name: 'home', path: '/' },
+  { name: 'cv', path: '/cv' },
 ] as const;
 
 /* A day, because nobody notices a splash screen that lags behind the site
    by an afternoon, and these are fetched in bursts when a device installs
    the PWA — exactly when a cache earns its keep. */
 const objectHeaders = {
-  contentType: "image/png",
-  cacheControl: "public, max-age=86400, stale-while-revalidate=604800",
+  contentType: 'image/png',
+  cacheControl: 'public, max-age=86400, stale-while-revalidate=604800',
 } as const;
 
 type TStartupImage = { key: string; image: Uint8Array };
@@ -49,11 +49,11 @@ const captureDevice = async (
       hasTouch: true,
     });
 
-    await page.goto(url, { waitUntil: "load" });
+    await page.goto(url, { waitUntil: 'load' });
 
     await wait(settleDelay);
 
-    return await page.screenshot({ type: "png" });
+    return await page.screenshot({ type: 'png' });
   } finally {
     await page.close();
   }

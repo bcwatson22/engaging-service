@@ -1,11 +1,11 @@
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { Injectable, Logger } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
-import type { TEnv } from "../config/env.schema";
+import type { TEnv } from '../config/env.schema';
 
 /* R2 is S3-compatible but not regional, and rejects a real region name. */
-const region = "auto";
+const region = 'auto';
 
 /* Everything that describes how an object is served, kept together so a new
    artifact type cannot be added with a content type but no cache policy. */
@@ -28,15 +28,15 @@ export class StorageService {
   private readonly publicBase: string;
 
   constructor(config: ConfigService<TEnv, true>) {
-    this.bucket = config.get("R2_BUCKET", { infer: true });
-    this.publicBase = config.get("R2_PUBLIC_BASE", { infer: true });
+    this.bucket = config.get('R2_BUCKET', { infer: true });
+    this.publicBase = config.get('R2_PUBLIC_BASE', { infer: true });
 
     this.client = new S3Client({
       region,
-      endpoint: endpointFor(config.get("R2_ACCOUNT_ID", { infer: true })),
+      endpoint: endpointFor(config.get('R2_ACCOUNT_ID', { infer: true })),
       credentials: {
-        accessKeyId: config.get("R2_ACCESS_KEY_ID", { infer: true }),
-        secretAccessKey: config.get("R2_SECRET_ACCESS_KEY", { infer: true }),
+        accessKeyId: config.get('R2_ACCESS_KEY_ID', { infer: true }),
+        secretAccessKey: config.get('R2_SECRET_ACCESS_KEY', { infer: true }),
       },
     });
   }

@@ -1,7 +1,7 @@
-const renderQueue = "render";
+const renderQueue = 'render';
 
-const cvPdfJob = "cv-pdf";
-const startupImagesJob = "startup-images";
+const cvPdfJob = 'cv-pdf';
+const startupImagesJob = 'startup-images';
 
 const artifacts = [cvPdfJob, startupImagesJob] as const;
 
@@ -16,18 +16,18 @@ const isArtifact = (value: string): value is TArtifact =>
    link. stale-while-revalidate lets the edge answer instantly and refresh
    behind the request, so freshness costs nobody a wait. */
 const cvPdf = {
-  path: "/cv",
-  key: "billy-watson-cv.pdf",
-  contentType: "application/pdf",
-  cacheControl: "public, max-age=600, stale-while-revalidate=3600",
+  path: '/cv',
+  key: 'billy-watson-cv.pdf',
+  contentType: 'application/pdf',
+  cacheControl: 'public, max-age=600, stale-while-revalidate=3600',
 } as const;
 
 /* Both pages are captured as splash screens, so a change to either should
    re-capture the set. The key is where the content hash is recorded, not an
    object key — there are twenty-two of those. */
 const startupImages = {
-  paths: ["/", "/cv"],
-  key: "startup-images",
+  paths: ['/', '/cv'],
+  key: 'startup-images',
 } as const;
 
 /* The machine sleeps after roughly two minutes without traffic, and a
@@ -43,7 +43,7 @@ const idleTimeout = 120_000;
 
 const jobOptions = {
   attempts: 5,
-  backoff: { type: "exponential", delay: 5_000 },
+  backoff: { type: 'exponential', delay: 5_000 },
   removeOnComplete: 20,
   removeOnFail: 50,
 } as const;

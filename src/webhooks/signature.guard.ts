@@ -1,15 +1,15 @@
-import { verifyWebhookSignature } from "@hygraph/utils";
+import { verifyWebhookSignature } from '@hygraph/utils';
 import {
   type CanActivate,
   type ExecutionContext,
   Injectable,
   UnauthorizedException,
-} from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
-import type { TEnv } from "../config/env.schema";
+import type { TEnv } from '../config/env.schema';
 
-const signatureHeader = "gcms-signature";
+const signatureHeader = 'gcms-signature';
 
 /* rawBody is populated because the app is created with `rawBody: true`.
    Verification must use the bytes Hygraph signed — a parsed and re-serialised
@@ -30,7 +30,7 @@ export class SignatureGuard implements CanActivate {
 
     const signature = headers[signatureHeader];
 
-    if (typeof signature !== "string" || !rawBody) {
+    if (typeof signature !== 'string' || !rawBody) {
       throw new UnauthorizedException();
     }
 
@@ -45,8 +45,8 @@ export class SignatureGuard implements CanActivate {
     try {
       return verifyWebhookSignature({
         signature,
-        secret: this.config.get("HYGRAPH_WEBHOOK_SECRET", { infer: true }),
-        rawPayload: rawBody.toString("utf8"),
+        secret: this.config.get('HYGRAPH_WEBHOOK_SECRET', { infer: true }),
+        rawPayload: rawBody.toString('utf8'),
       });
       /* A malformed header makes the verifier throw while splitting it, which
          is a rejection rather than a server error. */

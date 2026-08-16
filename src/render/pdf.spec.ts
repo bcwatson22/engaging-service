@@ -1,4 +1,4 @@
-import type { Browser, Page } from "puppeteer";
+import type { Browser, Page } from 'puppeteer';
 
 import {
   applyFiller,
@@ -9,9 +9,9 @@ import {
   maxFill,
   renderPdf,
   spillMessage,
-} from "./pdf";
+} from './pdf';
 
-const url = "https://www.engaging.engineering/cv";
+const url = 'https://www.engaging.engineering/cv';
 
 const makePdf = (count: number): Uint8Array =>
   Buffer.from(`%PDF-1.4\n/Type /Pages /Kids [] /Count ${count}\n`);
@@ -49,13 +49,13 @@ const stubDocument = (
   const { existing = false, wrapper = true } = options;
 
   const element = {
-    id: "",
+    id: '',
     setAttribute: vi.fn<(name: string, value: string) => void>(),
     style: {} as CSSStyleDeclaration,
   };
   const container = { append: vi.fn<(node: unknown) => void>() };
 
-  vi.stubGlobal("document", {
+  vi.stubGlobal('document', {
     getElementById: vi
       .fn<() => unknown>()
       .mockReturnValue(existing ? element : null),
@@ -68,30 +68,30 @@ const stubDocument = (
   return { element, container };
 };
 
-describe("getPageCount", () => {
-  it("reads the count from the page tree", () => {
+describe('getPageCount', () => {
+  it('reads the count from the page tree', () => {
     expect(getPageCount(makePdf(3))).toBe(3);
   });
 
-  it("throws when the page tree cannot be found", () => {
-    expect(() => getPageCount(Buffer.from("not a pdf"))).toThrow(countMessage);
+  it('throws when the page tree cannot be found', () => {
+    expect(() => getPageCount(Buffer.from('not a pdf'))).toThrow(countMessage);
   });
 });
 
-describe("applyFiller", () => {
+describe('applyFiller', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("creates the filler when it does not already exist", () => {
+  it('creates the filler when it does not already exist', () => {
     const { element, container } = stubDocument();
 
     applyFiller(fillerId, 120);
 
     expect(element.id).toBe(fillerId);
-    expect(element.style.height).toBe("120px");
+    expect(element.style.height).toBe('120px');
     expect(container.append).toHaveBeenNthCalledWith(1, element);
   });
 
-  it("reuses the filler when it already exists", () => {
+  it('reuses the filler when it already exists', () => {
     stubDocument({ existing: true });
 
     applyFiller(fillerId, 40);
@@ -99,19 +99,19 @@ describe("applyFiller", () => {
     expect(document.createElement).not.toHaveBeenCalled();
   });
 
-  it("hides the filler from assistive technology", () => {
+  it('hides the filler from assistive technology', () => {
     const { element } = stubDocument();
 
     applyFiller(fillerId, 10);
 
     expect(element.setAttribute).toHaveBeenNthCalledWith(
       1,
-      "aria-hidden",
-      "true",
+      'aria-hidden',
+      'true',
     );
   });
 
-  it("does nothing further when there is no wrapper to append to", () => {
+  it('does nothing further when there is no wrapper to append to', () => {
     const { element } = stubDocument({ wrapper: false });
 
     expect(() => applyFiller(fillerId, 10)).not.toThrow();
@@ -119,10 +119,10 @@ describe("applyFiller", () => {
   });
 });
 
-describe("fillLastPage", () => {
+describe('fillLastPage', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("settles on the largest fill that keeps the same page count", async () => {
+  it('settles on the largest fill that keeps the same page count', async () => {
     const { page, getHeight } = setup({ threshold: 600 });
 
     await fillLastPage(page);
@@ -130,13 +130,13 @@ describe("fillLastPage", () => {
     expect(getHeight()).toBe(599);
   });
 
-  it("throws when the maximum fill does not spill onto a new page", async () => {
+  it('throws when the maximum fill does not spill onto a new page', async () => {
     const { page } = setup({ spills: false });
 
     await expect(fillLastPage(page)).rejects.toThrow(spillMessage);
   });
 
-  it("probes the upper bound before searching", async () => {
+  it('probes the upper bound before searching', async () => {
     const { page } = setup();
 
     await fillLastPage(page);
@@ -150,39 +150,39 @@ describe("fillLastPage", () => {
   });
 });
 
-describe("renderPdf", () => {
+describe('renderPdf', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("waits for the network to settle before rendering", async () => {
+  it('waits for the network to settle before rendering', async () => {
     const { browser, page } = setup();
 
     await renderPdf(browser, url);
 
     expect(page.goto).toHaveBeenNthCalledWith(1, url, {
-      waitUntil: "networkidle0",
+      waitUntil: 'networkidle0',
     });
   });
 
-  it("returns the rendered document", async () => {
+  it('returns the rendered document', async () => {
     const { browser } = setup();
 
     await expect(renderPdf(browser, url)).resolves.toBeInstanceOf(Buffer);
   });
 
-  it("still renders when the filler cannot be sized", async () => {
+  it('still renders when the filler cannot be sized', async () => {
     const { browser } = setup({ spills: false });
 
     await expect(renderPdf(browser, url)).resolves.toBeInstanceOf(Buffer);
   });
 
-  it("closes the page even when navigation fails", async () => {
+  it('closes the page even when navigation fails', async () => {
     const { browser, page } = setup();
 
     (page.goto as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new Error("nope"),
+      new Error('nope'),
     );
 
-    await expect(renderPdf(browser, url)).rejects.toThrow("nope");
+    await expect(renderPdf(browser, url)).rejects.toThrow('nope');
     expect(page.close).toHaveBeenCalledTimes(1);
   });
 });

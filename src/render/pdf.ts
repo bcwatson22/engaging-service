@@ -1,12 +1,12 @@
-import { Logger } from "@nestjs/common";
-import type { Browser, Page } from "puppeteer";
+import { Logger } from '@nestjs/common';
+import type { Browser, Page } from 'puppeteer';
 
-const logger = new Logger("Pdf");
+const logger = new Logger('Pdf');
 
-const margin = "5mm";
+const margin = '5mm';
 
 const pdfOptions = {
-  format: "A4",
+  format: 'A4',
   margin: {
     top: margin,
     left: margin,
@@ -15,19 +15,19 @@ const pdfOptions = {
   },
 } as const;
 
-const fillerId = "pdf-page-filler";
+const fillerId = 'pdf-page-filler';
 
 /* An A4 content box is ~1085px tall at 96dpi, so a filler this size always
    spills onto a new page — it seeds the upper bound of the search. */
 const maxFill = 1200;
 
-const countMessage = "Could not read the page count from the generated PDF";
+const countMessage = 'Could not read the page count from the generated PDF';
 const spillMessage = `A ${maxFill}px filler did not spill onto a new page`;
-const fillWarning = "Could not fill the last PDF page:";
+const fillWarning = 'Could not fill the last PDF page:';
 
 const getPageCount = (pdf: Uint8Array): number => {
   const match = Buffer.from(pdf)
-    .toString("latin1")
+    .toString('latin1')
     .match(/\/Type\s*\/Pages[\s\S]{0,200}?\/Count\s+(\d+)/);
 
   if (!match) throw new Error(countMessage);
@@ -38,13 +38,13 @@ const getPageCount = (pdf: Uint8Array): number => {
 /* Serialised into the browser by page.evaluate, so it can only reach its own
    arguments — no module scope. */
 const applyFiller = (id: string, height: number): void => {
-  const filler = document.getElementById(id) ?? document.createElement("div");
+  const filler = document.getElementById(id) ?? document.createElement('div');
 
   filler.id = id;
-  filler.setAttribute("aria-hidden", "true");
+  filler.setAttribute('aria-hidden', 'true');
   filler.style.height = `${height}px`;
 
-  document.querySelector(".wrapper")?.append(filler);
+  document.querySelector('.wrapper')?.append(filler);
 };
 
 const setFillerHeight = async (page: Page, height: number): Promise<void> => {
@@ -97,7 +97,7 @@ const renderPdf = async (
   const page = await browser.newPage();
 
   try {
-    await page.goto(url, { waitUntil: "networkidle0" });
+    await page.goto(url, { waitUntil: 'networkidle0' });
 
     try {
       await fillLastPage(page);
