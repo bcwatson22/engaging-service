@@ -6,15 +6,15 @@ import {
   Param,
   Post,
   UseGuards,
-} from "@nestjs/common";
+} from '@nestjs/common';
 
-import { isArtifact } from "./render.constants";
-import { RenderService } from "./render.service";
-import { SecretGuard } from "./secret.guard";
+import { isArtifact } from './render.constants';
+import { RenderService } from './render.service';
+import { SecretGuard } from './secret.guard';
 
 type TAccepted = { jobId: string };
 
-@Controller("render")
+@Controller('render')
 @UseGuards(SecretGuard)
 export class RenderController {
   constructor(private readonly render: RenderService) {}
@@ -27,9 +27,9 @@ export class RenderController {
 
      Per-artifact rather than all-at-once, so a PDF tweak does not also spend
      two minutes recapturing twenty-two screenshots. */
-  @Post(":artifact")
+  @Post(':artifact')
   @HttpCode(HttpStatus.ACCEPTED)
-  async trigger(@Param("artifact") artifact: string): Promise<TAccepted> {
+  async trigger(@Param('artifact') artifact: string): Promise<TAccepted> {
     if (!isArtifact(artifact)) throw new NotFoundException();
 
     return { jobId: await this.render.enqueue(artifact, true) };

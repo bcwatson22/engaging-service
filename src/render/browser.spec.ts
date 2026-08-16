@@ -1,40 +1,40 @@
-import puppeteer from "puppeteer";
+import puppeteer from 'puppeteer';
 
-import { args, executablePath, launch } from "./browser";
+import { args, executablePath, launch } from './browser';
 
-vi.mock("puppeteer", () => ({
+vi.mock('puppeteer', () => ({
   default: {
     launch: vi
       .fn<() => Promise<unknown>>()
-      .mockResolvedValue({ id: "browser" }),
+      .mockResolvedValue({ id: 'browser' }),
   },
 }));
 
 const setup = (options: { path?: string } = {}) => {
-  if (options.path) vi.stubEnv("PUPPETEER_EXECUTABLE_PATH", options.path);
+  if (options.path) vi.stubEnv('PUPPETEER_EXECUTABLE_PATH', options.path);
 
   return { launched: puppeteer.launch as ReturnType<typeof vi.fn> };
 };
 
-describe("executablePath", () => {
+describe('executablePath', () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it("is undefined when the image has not set one", () => {
+  it('is undefined when the image has not set one', () => {
     expect(executablePath()).toBeUndefined();
   });
 
   it("is the image's Chromium when set", () => {
-    setup({ path: "/usr/bin/chromium" });
+    setup({ path: '/usr/bin/chromium' });
 
-    expect(executablePath()).toBe("/usr/bin/chromium");
+    expect(executablePath()).toBe('/usr/bin/chromium');
   });
 });
 
-describe("launch", () => {
+describe('launch', () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.unstubAllEnvs());
 
-  it("launches headless with the container-safe flags", async () => {
+  it('launches headless with the container-safe flags', async () => {
     const { launched } = setup();
 
     await launch();
@@ -47,14 +47,14 @@ describe("launch", () => {
   });
 
   it("uses the image's Chromium when one is configured", async () => {
-    const { launched } = setup({ path: "/usr/bin/chromium" });
+    const { launched } = setup({ path: '/usr/bin/chromium' });
 
     await launch();
 
     expect(launched).toHaveBeenNthCalledWith(1, {
       headless: true,
       args,
-      executablePath: "/usr/bin/chromium",
+      executablePath: '/usr/bin/chromium',
     });
   });
 });

@@ -4,14 +4,14 @@ import {
   HttpStatus,
   Post,
   UseGuards,
-} from "@nestjs/common";
+} from '@nestjs/common';
 
-import { RenderService } from "../render/render.service";
-import { SignatureGuard } from "./signature.guard";
+import { RenderService } from '../render/render.service';
+import { SignatureGuard } from './signature.guard';
 
 type TAccepted = { jobIds: string[] };
 
-@Controller("webhooks")
+@Controller('webhooks')
 export class WebhooksController {
   constructor(private readonly render: RenderService) {}
 
@@ -20,7 +20,7 @@ export class WebhooksController {
      revalidating before its pages are captured.
 
      Hygraph is configured to call this only for the CV model. */
-  @Post("hygraph")
+  @Post('hygraph')
   @UseGuards(SignatureGuard)
   @HttpCode(HttpStatus.ACCEPTED)
   async hygraph(): Promise<TAccepted> {

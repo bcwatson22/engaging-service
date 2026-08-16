@@ -1,8 +1,8 @@
-import { Module } from "@nestjs/common";
+import { Module } from '@nestjs/common';
 
-import { RenderModule } from "../render/render.module";
-import { SignatureGuard } from "./signature.guard";
-import { WebhooksController } from "./webhooks.controller";
+import { RenderModule } from '../render/render.module';
+import { SignatureGuard } from './signature.guard';
+import { WebhooksController } from './webhooks.controller';
 
 @Module({
   imports: [RenderModule],

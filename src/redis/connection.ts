@@ -1,9 +1,9 @@
-import { Logger } from "@nestjs/common";
-import IORedis from "ioredis";
+import { Logger } from '@nestjs/common';
+import IORedis from 'ioredis';
 
-const logger = new Logger("Redis");
+const logger = new Logger('Redis');
 
-const timedOut = "ETIMEDOUT";
+const timedOut = 'ETIMEDOUT';
 
 /* TLS is not set here on purpose — it is inferred from a `rediss://` url, so
    the deployed Upstash connection gets it and a local `redis://` docker
@@ -31,7 +31,7 @@ const connectionOptions = {
 const createConnection = (url: string): IORedis => {
   const client = new IORedis(url, connectionOptions);
 
-  client.on("error", ({ message }: Error) => logger.warn(message));
+  client.on('error', ({ message }: Error) => logger.warn(message));
 
   return client;
 };
