@@ -1,0 +1,6 @@
+# Revisions to skip when running git blame.
+# Enable locally with:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# chore: format with single quotes
+a19e53cb2527a8c9bbc60e22553eb25d4a10f902
