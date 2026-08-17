@@ -86,11 +86,11 @@ queue's waiting, active, delayed and failed counts.
 Each entry records what the render produced (a public URL for the PDF, a count
 for the startup images, which have no single URL between them) and what it cost:
 
-| Field | Means |
-| --- | --- |
-| `durationMs` | The render itself — headless Chrome, then the upload. |
-| `elapsedMs` | Enqueue to finish, so it spans every attempt and the backoff between them. |
-| `attempts` | How many passes it took before the live page had changed. |
+| Field        | Means                                                                      |
+| ------------ | -------------------------------------------------------------------------- |
+| `durationMs` | The render itself — headless Chrome, then the upload.                      |
+| `elapsedMs`  | Enqueue to finish, so it spans every attempt and the backoff between them. |
+| `attempts`   | How many passes it took before the live page had changed.                  |
 
 The gap between `elapsedMs` and `durationMs` is the interesting one: it is how
 long the site took to catch up after a CMS publish, which is the race the
