@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 
 import type { TEnv } from './config/env.schema';
 import { validate } from './config/env.schema';
+import { ContactModule } from './contact/contact.module';
 import { HealthModule } from './health/health.module';
 import { createConnection } from './redis/connection';
 import { RenderModule } from './render/render.module';
@@ -18,6 +19,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
         connection: createConnection(config.get('REDIS_URL', { infer: true })),
       }),
     }),
+    ContactModule,
     HealthModule,
     RenderModule,
     WebhooksModule,

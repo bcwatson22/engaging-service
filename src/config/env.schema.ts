@@ -22,6 +22,17 @@ const envSchema = z.object({
   /* Shared with the Hygraph webhook, which signs each payload with it. */
   HYGRAPH_WEBHOOK_SECRET: z.string().min(1),
 
+  /* Resend, for POST /contact. No default and no dev stub: a misconfigured
+     deploy should fail at boot rather than silently dropping enquiries. */
+  RESEND_API_KEY: z.string().min(1),
+
+  /* Must be on a domain verified in Resend or delivery is refused outright.
+     Deliberately not the same address as CONTACT_TO — sending and receiving
+     are separate concerns, and a forwarding alias is not a mailbox that can
+     send. */
+  CONTACT_FROM: z.email(),
+  CONTACT_TO: z.email(),
+
   R2_ACCOUNT_ID: z.string().min(1),
   R2_ACCESS_KEY_ID: z.string().min(1),
   R2_SECRET_ACCESS_KEY: z.string().min(1),
