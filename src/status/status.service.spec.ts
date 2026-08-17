@@ -1,6 +1,7 @@
 import { getQueueToken } from '@nestjs/bullmq';
 import { Test } from '@nestjs/testing';
 
+import { CheckStore, type TCheck } from '../integrity/check.store';
 import { RecordStore, type TRecord } from '../render/record.store';
 import {
   cvPdfJob,
@@ -17,12 +18,20 @@ const record: TRecord = {
   elapsedMs: 49_000,
 };
 
+const check: TCheck = {
+  at: '2026-08-17T12:00:00.000Z',
+  drifted: false,
+  queued: false,
+  stale: false,
+};
+
 type TOptions = {
   records?: Record<string, TRecord[]>;
+  checks?: Record<string, TCheck | null>;
   counts?: Record<string, number>;
 };
 
-const setup = async ({ records = {}, counts }: TOptions = {}) => {
+const setup = async ({ records = {}, checks = {}, counts }: TOptions = {}) => {
   const history = vi
     .fn<(artifact: string) => Promise<TRecord[]>>()
     .mockImplementation((artifact) => Promise.resolve(records[artifact] ?? []));
@@ -33,15 +42,27 @@ const setup = async ({ records = {}, counts }: TOptions = {}) => {
       counts ?? { waiting: 2, active: 1, delayed: 0, failed: 3 },
     );
 
+  const getCheck = vi
+    .fn<(artifact: string) => Promise<TCheck | null>>()
+    .mockImplementation((artifact) =>
+      Promise.resolve(checks[artifact] ?? null),
+    );
+
   const module = await Test.createTestingModule({
     providers: [
       StatusService,
       { provide: RecordStore, useValue: { history } },
+      { provide: CheckStore, useValue: { get: getCheck } },
       { provide: getQueueToken(renderQueue), useValue: { getJobCounts } },
     ],
   }).compile();
 
-  return { service: module.get(StatusService), history, getJobCounts };
+  return {
+    service: module.get(StatusService),
+    history,
+    getCheck,
+    getJobCounts,
+  };
 };
 
 describe('StatusService', () => {
@@ -62,6 +83,14 @@ describe('StatusService', () => {
 
     expect(history).toHaveBeenNthCalledWith(1, cvPdfJob);
     expect(history).toHaveBeenNthCalledWith(2, startupImagesJob);
+  });
+
+  it('reports what the last integrity check found', async () => {
+    const { service } = await setup({ checks: { [cvPdfJob]: check } });
+
+    await expect(service.read()).resolves.toMatchObject({
+      integrity: { [cvPdfJob]: check, [startupImagesJob]: null },
+    });
   });
 
   it('reports the queue depth', async () => {

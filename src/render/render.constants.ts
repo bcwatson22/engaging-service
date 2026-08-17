@@ -52,8 +52,18 @@ const jobOptions = {
 const totalBackoff = (): number =>
   jobOptions.backoff.delay * (2 ** (jobOptions.attempts - 1) - 1);
 
+/* Which pages an artifact is derived from, and the key its content hash is
+   recorded under. The processor reaches for these constants directly when it
+   renders; this states the association once so the integrity check cannot
+   drift from it by checking the wrong page. */
+const sourcesFor = (artifact: TArtifact): { paths: string[]; key: string } =>
+  artifact === cvPdfJob
+    ? { paths: [cvPdf.path], key: cvPdf.key }
+    : { paths: [...startupImages.paths], key: startupImages.key };
+
 export {
   renderQueue,
+  sourcesFor,
   cvPdfJob,
   startupImagesJob,
   artifacts,

@@ -17,6 +17,7 @@ const status: TStatus = {
     ],
     [startupImagesJob]: [],
   },
+  integrity: { [cvPdfJob]: null, [startupImagesJob]: null },
   queue: { waiting: 0, active: 0, delayed: 0, failed: 0 },
 };
 
