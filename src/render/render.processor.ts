@@ -10,8 +10,10 @@ import { launch } from './browser';
 import { fetchCombinedHash } from './content-hash';
 import { HashStore } from './hash.store';
 import { renderPdf } from './pdf';
+import { RecordStore } from './record.store';
 import {
   cvPdf,
+  isArtifact,
   renderQueue,
   startupImages,
   startupImagesJob,
@@ -33,6 +35,7 @@ export class RenderProcessor extends WorkerHost {
   constructor(
     private readonly storage: StorageService,
     private readonly hashes: HashStore,
+    private readonly records: RecordStore,
     private readonly config: ConfigService<TEnv, true>,
   ) {
     super();
@@ -56,9 +59,15 @@ export class RenderProcessor extends WorkerHost {
     );
   }
 
+  /* Recorded here rather than inside each render, so there is one place a
+     success is written down and no way to add an artifact that renders but
+     never reports. The log stays: it is what you read while watching a
+     deploy, and the record is what answers a question hours later. */
   @OnWorkerEvent('completed')
-  onCompleted(job: Job<TRenderJob>, result: string): void {
+  async onCompleted(job: Job<TRenderJob>, result: string): Promise<void> {
     this.logger.log(`${job.name} #${job.id} finished: ${result}`);
+
+    if (isArtifact(job.name)) await this.records.set(job.name, result);
   }
 
   private async cvPdf(job: Job<TRenderJob>): Promise<string> {

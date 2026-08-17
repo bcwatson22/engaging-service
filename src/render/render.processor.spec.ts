@@ -7,6 +7,7 @@ import { launch } from './browser';
 import { fetchCombinedHash } from './content-hash';
 import { HashStore } from './hash.store';
 import { renderPdf } from './pdf';
+import { RecordStore } from './record.store';
 import {
   cvPdf,
   cvPdfJob,
@@ -48,6 +49,7 @@ const setup = async (
     .fn<() => Promise<string | null>>()
     .mockResolvedValue(options.stored ?? null);
   const set = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+  const record = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
   const pdf = Buffer.from('pdf');
 
   vi.mocked(launch).mockResolvedValue({ close } as never);
@@ -60,11 +62,19 @@ const setup = async (
       RenderProcessor,
       { provide: StorageService, useValue: { upload } },
       { provide: HashStore, useValue: { get, set } },
+      { provide: RecordStore, useValue: { set: record } },
       { provide: ConfigService, useValue: { get: () => siteUrl } },
     ],
   }).compile();
 
-  return { processor: module.get(RenderProcessor), close, upload, set, pdf };
+  return {
+    processor: module.get(RenderProcessor),
+    close,
+    upload,
+    set,
+    record,
+    pdf,
+  };
 };
 
 describe('RenderProcessor', () => {
@@ -246,11 +256,47 @@ describe('worker events', () => {
     const { processor } = await setup();
     const log = vi.spyOn(processor['logger'], 'log');
 
-    processor.onCompleted(jobWith({}), '22 startup images');
+    await processor.onCompleted(jobWith({}), '22 startup images');
 
     expect(log).toHaveBeenNthCalledWith(
       1,
       `${cvPdfJob} #job-1 finished: 22 startup images`,
     );
+  });
+
+  /* The log is what you read while watching a deploy; the record is what
+     answers the same question hours later, from the status endpoint. */
+  it('records what a completed job produced', async () => {
+    const { processor, record } = await setup();
+
+    await processor.onCompleted(jobWith({}), uploadedUrl);
+
+    expect(record).toHaveBeenNthCalledWith(1, cvPdfJob, uploadedUrl);
+  });
+
+  it('records the startup images against their own artifact', async () => {
+    const { processor, record } = await setup();
+
+    await processor.onCompleted(
+      jobWith({ name: startupImagesJob }),
+      '22 startup images',
+    );
+
+    expect(record).toHaveBeenNthCalledWith(
+      1,
+      startupImagesJob,
+      '22 startup images',
+    );
+  });
+
+  /* A job name this service does not produce cannot be recorded against an
+     artifact, and inventing a key for it would put something in the status
+     response that nothing else knows about. */
+  it('records nothing for a job that is not an artifact', async () => {
+    const { processor, record } = await setup();
+
+    await processor.onCompleted(jobWith({ name: 'favicon' }), 'whatever');
+
+    expect(record).not.toHaveBeenCalled();
   });
 });

@@ -8,6 +8,7 @@ import { ContactModule } from './contact/contact.module';
 import { HealthModule } from './health/health.module';
 import { createConnection } from './redis/connection';
 import { RenderModule } from './render/render.module';
+import { StatusModule } from './status/status.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
@@ -22,6 +23,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     ContactModule,
     HealthModule,
     RenderModule,
+    StatusModule,
     WebhooksModule,
   ],
 })
