@@ -59,7 +59,7 @@ fly releases -a engaging-service
 | `POST /contact`               | A visitor     | The site's contact form. CORS-locked to `SITE_URL`. See below.                                |
 | `POST /render/cv-pdf`         | You, by hand  | Guarded by `x-render-secret`. Forces a render, skipping the content check.                    |
 | `POST /render/startup-images` | You, by hand  | As above, for the 22 PWA splash screens.                                                      |
-| `GET /status`                 | Anyone        | What the last render produced and how deep the queue is. Cached for a minute.                  |
+| `GET /status`                 | Anyone        | What the last render produced and how deep the queue is. Cached for a minute.                 |
 | `GET /health`                 | The platform  | Readiness.                                                                                    |
 
 Trigger a render by hand:
