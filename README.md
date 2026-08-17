@@ -36,6 +36,21 @@ docker run -d -p 6379:6379 --name engaging-redis redis:7-alpine
 pnpm install && pnpm dev
 ```
 
+## Deployment
+
+Merging to `main` deploys. CI runs lint, format, types, coverage and a build,
+and only a green run reaches `flyctl deploy` — nothing is run by hand.
+
+Secrets live in Fly rather than in CI, set with `fly secrets set KEY=value`.
+They are validated at boot by `src/config/env.schema.ts`, so a missing one
+fails the release rather than the first request that happens to need it.
+
+To roll back, list the releases and redeploy the image from a good one:
+
+```bash
+fly releases -a engaging-service
+```
+
 ## Endpoints
 
 | Route                         | Trigger       | Notes                                                                                         |
