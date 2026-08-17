@@ -59,6 +59,7 @@ fly releases -a engaging-service
 | `POST /contact`               | A visitor     | The site's contact form. CORS-locked to `SITE_URL`. See below.                                |
 | `POST /render/cv-pdf`         | You, by hand  | Guarded by `x-render-secret`. Forces a render, skipping the content check.                    |
 | `POST /render/startup-images` | You, by hand  | As above, for the 22 PWA splash screens.                                                      |
+| `GET /status`                 | Anyone        | What the last render produced and how deep the queue is. Cached for a minute.                  |
 | `GET /health`                 | The platform  | Readiness.                                                                                    |
 
 Trigger a render by hand:
@@ -74,6 +75,25 @@ public URL.
 The manual route forces the render deliberately: it exists for re-rendering
 after a change the CMS knows nothing about, such as a print-stylesheet tweak,
 which the unchanged-content check would otherwise reject.
+
+## The status endpoint
+
+`GET /status` answers "is the PDF current?" without reading the logs. It
+reports, per artifact, when the last successful render finished and what it
+produced — a public URL for the PDF, a count for the startup images, which have
+no single URL between them — along with the queue's waiting, active, delayed
+and failed counts.
+
+Until now nothing wrote that down: the processor returned the URL, logged it,
+and threw it away. `RecordStore` persists it on the `completed` event, which is
+the one place both artifacts finish, so an artifact cannot be added that renders
+but never reports.
+
+It is unguarded on purpose — it exists to be looked at — and deliberately
+boring. No environment values, no error text, no internal hostnames. Nothing in
+it tells anybody something they could not learn by watching the site. The
+minute-long `cache-control` stops it being used to probe the service or to keep
+the machine awake.
 
 ## The contact endpoint
 
