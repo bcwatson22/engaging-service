@@ -9,9 +9,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # The deployed artifact is the image, not the dist directory, so a green
       # `pnpm build` on its own proves very little about what actually ships.
       - run: docker build -t engaging-service .
@@ -55,7 +55,7 @@ jobs:
       cancel-in-progress: false
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Pinned to a commit rather than @master, which is what Fly's own docs
       # suggest: this step runs with a deploy token in scope, so it should not
       # be whatever was pushed to their default branch this morning.
