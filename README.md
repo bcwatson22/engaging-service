@@ -144,6 +144,43 @@ A deploy hook from the site would be tighter than a schedule, and is the better
 answer if that pipeline ever calls this. The schedule is the version that needs
 no coupling between two deploys.
 
+## The dead-link sweep
+
+The CV carries outbound links — LinkedIn, GitHub, references — and a link that
+dies does so silently, on the one document most likely to be read by someone
+deciding whether to reply.
+
+Weekly, this reads the rendered CV page, takes every outbound `href` from it,
+and asks each one for its headers.
+
+**It reads the page, not the CMS.** The plan had this pulling `contactLinks`,
+`onlineLinks` and the references out of the CV query, but this service has no
+Hygraph credentials — only the webhook secret — and issuing it some to read
+three fields would be a new coupling to the CMS schema for no gain. The
+rendered page is the better source: it is what a visitor actually clicks, it
+needs no credentials, and it catches any outbound link on the page rather than
+the three fields someone remembered to list.
+
+Results are one of three things:
+
+| State     | Means                                                                        |
+| --------- | ---------------------------------------------------------------------------- |
+| `ok`      | Answered 2xx or 3xx.                                                         |
+| `blocked` | The host refused a robot — 999, 403, 429, or 405 for not taking HEAD at all. |
+| `broken`  | 404, 5xx, or no answer before the timeout.                                   |
+
+`blocked` exists because LinkedIn answers `999` to anything that looks
+automated. Reporting that as broken every week would train anyone reading this
+to ignore the report, including the week a link genuinely dies.
+
+Reported, never emailed, for the same reason. Only the problems are stored —
+"this link still works" a dozen times a week is a fact nobody reads, and the
+count already implies it.
+
+Requests go out one at a time with a real user-agent. There are a dozen or so
+links and no hurry; firing them in parallel makes this look like a scanner to
+exactly the hosts least inclined to give it the benefit of the doubt.
+
 ## The contact endpoint
 
 `POST /contact` is the one route a person waits on, which makes it the

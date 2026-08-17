@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import type { Queue } from 'bullmq';
 
 import { CheckStore, type TCheck } from '../integrity/check.store';
+import { SweepStore, type TSweep } from '../links/sweep.store';
 import { RecordStore, type TRecord } from '../render/record.store';
 import {
   artifacts,
@@ -30,6 +31,8 @@ type TStatus = {
      run yet — the schedule is weekly, so that is the normal state for the
      first few days after a deploy. */
   integrity: Record<TArtifact, TCheck | null>;
+  /* What the last outbound-link sweep found. Null before one has run. */
+  links: TSweep | null;
   queue: TQueue;
 };
 
@@ -38,17 +41,19 @@ export class StatusService {
   constructor(
     private readonly records: RecordStore,
     private readonly checks: CheckStore,
+    private readonly sweeps: SweepStore,
     @InjectQueue(renderQueue) private readonly queue: Queue,
   ) {}
 
   /* Everything at once, in parallel — the page shows it together and one
      slow lookup should not serialise the rest. */
   async read(): Promise<TStatus> {
-    const [records, checks, counts] = await Promise.all([
+    const [records, checks, links, counts] = await Promise.all([
       Promise.all(
         artifacts.map(async (name) => await this.records.history(name)),
       ),
       Promise.all(artifacts.map(async (name) => await this.checks.get(name))),
+      this.sweeps.get(),
       this.queue.getJobCounts('waiting', 'active', 'delayed', 'failed'),
     ]);
 
@@ -59,6 +64,7 @@ export class StatusService {
       integrity: Object.fromEntries(
         artifacts.map((name, index) => [name, checks[index]]),
       ) as Record<TArtifact, TCheck | null>,
+      links,
       queue: {
         waiting: counts.waiting ?? 0,
         active: counts.active ?? 0,
