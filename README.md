@@ -78,16 +78,29 @@ which the unchanged-content check would otherwise reject.
 
 ## The status endpoint
 
-`GET /status` answers "is the PDF current?" without reading the logs. It
-reports, per artifact, when the last successful render finished and what it
-produced — a public URL for the PDF, a count for the startup images, which have
-no single URL between them — along with the queue's waiting, active, delayed
-and failed counts.
+`GET /status` answers "is the PDF current?" without reading the logs. Per
+artifact it returns the last twenty renders, newest first — so the head of the
+list is "when was this last rendered" and the rest is a history — along with the
+queue's waiting, active, delayed and failed counts.
 
-Until now nothing wrote that down: the processor returned the URL, logged it,
-and threw it away. `RecordStore` persists it on the `completed` event, which is
-the one place both artifacts finish, so an artifact cannot be added that renders
-but never reports.
+Each entry records what the render produced (a public URL for the PDF, a count
+for the startup images, which have no single URL between them) and what it cost:
+
+| Field        | Means                                                                      |
+| ------------ | -------------------------------------------------------------------------- |
+| `durationMs` | The render itself — headless Chrome, then the upload.                      |
+| `elapsedMs`  | Enqueue to finish, so it spans every attempt and the backoff between them. |
+| `attempts`   | How many passes it took before the live page had changed.                  |
+
+The gap between `elapsedMs` and `durationMs` is the interesting one: it is how
+long the site took to catch up after a CMS publish, which is the race the
+content-hash check retries through. Nothing else records that — the logs are the
+only other place it exists, and they go with the machine.
+
+`RecordStore` writes an entry on the `completed` event, the one place both
+artifacts finish, so an artifact cannot be added that renders but never reports.
+The list is capped at twenty: renders happen roughly twice a month, so that is
+the best part of a year, and short enough to read whole on every request.
 
 It is unguarded on purpose — it exists to be looked at — and deliberately
 boring. No environment values, no error text, no internal hostnames. Nothing in

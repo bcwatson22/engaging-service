@@ -49,7 +49,9 @@ const setup = async (
     .fn<() => Promise<string | null>>()
     .mockResolvedValue(options.stored ?? null);
   const set = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
-  const record = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+  const record = vi
+    .fn<(artifact: string, outcome: Record<string, unknown>) => Promise<void>>()
+    .mockResolvedValue(undefined);
   const pdf = Buffer.from('pdf');
 
   vi.mocked(launch).mockResolvedValue({ close } as never);
@@ -62,7 +64,7 @@ const setup = async (
       RenderProcessor,
       { provide: StorageService, useValue: { upload } },
       { provide: HashStore, useValue: { get, set } },
-      { provide: RecordStore, useValue: { set: record } },
+      { provide: RecordStore, useValue: { add: record } },
       { provide: ConfigService, useValue: { get: () => siteUrl } },
     ],
   }).compile();
@@ -103,7 +105,9 @@ describe('RenderProcessor', () => {
   it('returns the public url of the uploaded document', async () => {
     const { processor } = await setup();
 
-    await expect(processor.process(jobFor())).resolves.toBe(uploadedUrl);
+    await expect(processor.process(jobFor())).resolves.toMatchObject({
+      result: uploadedUrl,
+    });
   });
 
   it('records the hash only after a successful upload', async () => {
@@ -196,7 +200,7 @@ describe('RenderProcessor', () => {
 
     await expect(
       processor.process(jobFor(false, startupImagesJob)),
-    ).resolves.toBe(`${captured.length} startup images`);
+    ).resolves.toMatchObject({ result: `${captured.length} startup images` });
   });
 
   it('records the startup images under their own hash key', async () => {
@@ -224,6 +228,7 @@ describe('worker events', () => {
       id: 'job-1',
       name: cvPdfJob,
       attemptsMade: 1,
+      timestamp: Date.now(),
       opts: { attempts: 5 },
       ...overrides,
     }) as Job<TRenderJob>;
@@ -256,7 +261,10 @@ describe('worker events', () => {
     const { processor } = await setup();
     const log = vi.spyOn(processor['logger'], 'log');
 
-    await processor.onCompleted(jobWith({}), '22 startup images');
+    await processor.onCompleted(jobWith({}), {
+      result: '22 startup images',
+      durationMs: 1000,
+    });
 
     expect(log).toHaveBeenNthCalledWith(
       1,
@@ -269,24 +277,70 @@ describe('worker events', () => {
   it('records what a completed job produced', async () => {
     const { processor, record } = await setup();
 
-    await processor.onCompleted(jobWith({}), uploadedUrl);
+    await processor.onCompleted(jobWith({}), {
+      result: uploadedUrl,
+      durationMs: 14_000,
+    });
 
-    expect(record).toHaveBeenNthCalledWith(1, cvPdfJob, uploadedUrl);
+    expect(record).toHaveBeenNthCalledWith(
+      1,
+      cvPdfJob,
+      expect.objectContaining({ result: uploadedUrl, durationMs: 14_000 }),
+    );
   });
 
   it('records the startup images against their own artifact', async () => {
     const { processor, record } = await setup();
 
-    await processor.onCompleted(
-      jobWith({ name: startupImagesJob }),
-      '22 startup images',
-    );
+    await processor.onCompleted(jobWith({ name: startupImagesJob }), {
+      result: '22 startup images',
+      durationMs: 9_000,
+    });
 
     expect(record).toHaveBeenNthCalledWith(
       1,
       startupImagesJob,
-      '22 startup images',
+      expect.objectContaining({ result: '22 startup images' }),
     );
+  });
+
+  /* BullMQ counts a first, uneventful pass as zero attempts made. Nobody
+     reading a status page thinks a render that happened took none. */
+  it('records a first-time render as one attempt, not none', async () => {
+    const { processor, record } = await setup();
+
+    await processor.onCompleted(jobWith({ attemptsMade: 0 }), {
+      result: uploadedUrl,
+      durationMs: 14_000,
+    });
+
+    expect(record.mock.calls[0][1]).toMatchObject({ attempts: 1 });
+  });
+
+  it('records how many attempts a render actually took', async () => {
+    const { processor, record } = await setup();
+
+    await processor.onCompleted(jobWith({ attemptsMade: 4 }), {
+      result: uploadedUrl,
+      durationMs: 14_000,
+    });
+
+    expect(record.mock.calls[0][1]).toMatchObject({ attempts: 4 });
+  });
+
+  /* The gap between elapsed and duration is how long the site took to catch
+     up after a publish — the race the content check retries through. */
+  it('records how long the whole job took, backoff included', async () => {
+    const { processor, record } = await setup();
+
+    vi.setSystemTime(new Date('2026-08-17T12:01:00.000Z'));
+
+    await processor.onCompleted(
+      jobWith({ timestamp: Date.parse('2026-08-17T12:00:00.000Z') }),
+      { result: uploadedUrl, durationMs: 14_000 },
+    );
+
+    expect(record.mock.calls[0][1]).toMatchObject({ elapsedMs: 60_000 });
   });
 
   /* A job name this service does not produce cannot be recorded against an
@@ -295,7 +349,10 @@ describe('worker events', () => {
   it('records nothing for a job that is not an artifact', async () => {
     const { processor, record } = await setup();
 
-    await processor.onCompleted(jobWith({ name: 'favicon' }), 'whatever');
+    await processor.onCompleted(jobWith({ name: 'favicon' }), {
+      result: 'whatever',
+      durationMs: 1,
+    });
 
     expect(record).not.toHaveBeenCalled();
   });

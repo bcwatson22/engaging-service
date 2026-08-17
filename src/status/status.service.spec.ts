@@ -12,19 +12,20 @@ import { StatusService } from './status.service';
 const record: TRecord = {
   at: '2026-08-17T12:00:00.000Z',
   result: 'https://artifacts.example.com/billy-watson-cv.pdf',
+  durationMs: 14_000,
+  attempts: 3,
+  elapsedMs: 49_000,
 };
 
 type TOptions = {
-  records?: Record<string, TRecord | null>;
+  records?: Record<string, TRecord[]>;
   counts?: Record<string, number>;
 };
 
 const setup = async ({ records = {}, counts }: TOptions = {}) => {
-  const get = vi
-    .fn<(artifact: string) => Promise<TRecord | null>>()
-    .mockImplementation((artifact) =>
-      Promise.resolve(records[artifact] ?? null),
-    );
+  const history = vi
+    .fn<(artifact: string) => Promise<TRecord[]>>()
+    .mockImplementation((artifact) => Promise.resolve(records[artifact] ?? []));
 
   const getJobCounts = vi
     .fn<() => Promise<Record<string, number>>>()
@@ -35,32 +36,32 @@ const setup = async ({ records = {}, counts }: TOptions = {}) => {
   const module = await Test.createTestingModule({
     providers: [
       StatusService,
-      { provide: RecordStore, useValue: { get } },
+      { provide: RecordStore, useValue: { history } },
       { provide: getQueueToken(renderQueue), useValue: { getJobCounts } },
     ],
   }).compile();
 
-  return { service: module.get(StatusService), get, getJobCounts };
+  return { service: module.get(StatusService), history, getJobCounts };
 };
 
 describe('StatusService', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('reports every artifact, rendered or not', async () => {
-    const { service } = await setup({ records: { [cvPdfJob]: record } });
+    const { service } = await setup({ records: { [cvPdfJob]: [record] } });
 
     await expect(service.read()).resolves.toMatchObject({
-      artifacts: { [cvPdfJob]: record, [startupImagesJob]: null },
+      artifacts: { [cvPdfJob]: [record], [startupImagesJob]: [] },
     });
   });
 
   it('asks for each artifact by name', async () => {
-    const { service, get } = await setup();
+    const { service, history } = await setup();
 
     await service.read();
 
-    expect(get).toHaveBeenNthCalledWith(1, cvPdfJob);
-    expect(get).toHaveBeenNthCalledWith(2, startupImagesJob);
+    expect(history).toHaveBeenNthCalledWith(1, cvPdfJob);
+    expect(history).toHaveBeenNthCalledWith(2, startupImagesJob);
   });
 
   it('reports the queue depth', async () => {

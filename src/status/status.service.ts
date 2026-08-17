@@ -19,8 +19,12 @@ type TQueue = {
   failed: number;
 };
 
+/* History rather than a latest-plus-history pair. The newest entry is the
+   head of the list, so a caller that only wants "when was this last
+   rendered" takes the first element — and a response cannot contradict
+   itself by carrying the same render twice in two shapes. */
 type TStatus = {
-  artifacts: Record<TArtifact, TRecord | null>;
+  artifacts: Record<TArtifact, TRecord[]>;
   queue: TQueue;
 };
 
@@ -35,14 +39,16 @@ export class StatusService {
      slow lookup should not serialise the rest. */
   async read(): Promise<TStatus> {
     const [records, counts] = await Promise.all([
-      Promise.all(artifacts.map(async (name) => await this.records.get(name))),
+      Promise.all(
+        artifacts.map(async (name) => await this.records.history(name)),
+      ),
       this.queue.getJobCounts('waiting', 'active', 'delayed', 'failed'),
     ]);
 
     return {
       artifacts: Object.fromEntries(
-        artifacts.map((name, index) => [name, records[index] ?? null]),
-      ) as Record<TArtifact, TRecord | null>,
+        artifacts.map((name, index) => [name, records[index]]),
+      ) as Record<TArtifact, TRecord[]>,
       queue: {
         waiting: counts.waiting ?? 0,
         active: counts.active ?? 0,

@@ -6,11 +6,16 @@ import { StatusService, type TStatus } from './status.service';
 
 const status: TStatus = {
   artifacts: {
-    [cvPdfJob]: {
-      at: '2026-08-17T12:00:00.000Z',
-      result: 'https://artifacts.example.com/billy-watson-cv.pdf',
-    },
-    [startupImagesJob]: null,
+    [cvPdfJob]: [
+      {
+        at: '2026-08-17T12:00:00.000Z',
+        result: 'https://artifacts.example.com/billy-watson-cv.pdf',
+        durationMs: 14_000,
+        attempts: 3,
+        elapsedMs: 49_000,
+      },
+    ],
+    [startupImagesJob]: [],
   },
   queue: { waiting: 0, active: 0, delayed: 0, failed: 0 },
 };
