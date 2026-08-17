@@ -29,7 +29,15 @@ min_machines_running = 1
 [[http_service.checks]]
 interval = "30s"
 timeout = "5s"
-grace_period = "10s"
+# 30s, not the 10s this used to be. A deploy replaces the machine, and this
+# image carries Chrome — measured at 21.3 seconds from cold to serving. A
+# grace period shorter than the boot guaranteed a failed check on every
+# deploy, which logged as "your app is not responding properly" and read like
+# a fault rather than a machine still starting.
+#
+# Raise this if the image ever gets slower to boot; the number is the boot
+# time, not a guess.
+grace_period = "30s"
 method = "GET"
 path = "/health"
 
