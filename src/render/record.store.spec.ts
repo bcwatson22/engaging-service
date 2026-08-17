@@ -2,7 +2,14 @@ import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 
 import { createConnection } from '../redis/connection';
-import { isRecord, prefix, RecordStore } from './record.store';
+import {
+  isRecord,
+  limit,
+  prefix,
+  RecordStore,
+  type TOutcome,
+  type TRecord,
+} from './record.store';
 import { cvPdfJob } from './render.constants';
 
 vi.mock('../redis/connection', () => ({
@@ -12,16 +19,34 @@ vi.mock('../redis/connection', () => ({
 const url = 'redis://127.0.0.1:6379';
 const publicUrl = 'https://artifacts.example.com/billy-watson-cv.pdf';
 
-const setup = async (options: { stored?: string | null } = {}) => {
-  const get = vi
-    .fn<() => Promise<string | null>>()
-    .mockResolvedValue(options.stored ?? null);
-  const set = vi
-    .fn<(key: string, value: string) => Promise<'OK'>>()
-    .mockResolvedValue('OK');
+const outcome: TOutcome = {
+  result: publicUrl,
+  durationMs: 14_000,
+  attempts: 3,
+  elapsedMs: 49_000,
+};
+
+const record: TRecord = { at: '2026-08-17T12:00:00.000Z', ...outcome };
+
+const setup = async ({ stored = [] as string[] } = {}) => {
+  const lrange = vi.fn<() => Promise<string[]>>().mockResolvedValue(stored);
+  const lpush = vi.fn<(key: string, value: string) => unknown>();
+  const ltrim = vi.fn<(key: string, start: number, stop: number) => unknown>();
+  const exec = vi.fn<() => Promise<unknown>>().mockResolvedValue([]);
   const quit = vi.fn<() => Promise<'OK'>>().mockResolvedValue('OK');
 
-  vi.mocked(createConnection).mockReturnValue({ get, set, quit } as never);
+  /* Chained, the way ioredis returns the pipeline from each call. */
+  const chain = { lpush, ltrim, exec };
+  lpush.mockReturnValue(chain);
+  ltrim.mockReturnValue(chain);
+
+  const multi = vi.fn<() => typeof chain>().mockReturnValue(chain);
+
+  vi.mocked(createConnection).mockReturnValue({
+    lrange,
+    multi,
+    quit,
+  } as never);
 
   const module = await Test.createTestingModule({
     providers: [
@@ -30,7 +55,7 @@ const setup = async (options: { stored?: string | null } = {}) => {
     ],
   }).compile();
 
-  return { store: module.get(RecordStore), get, set, quit };
+  return { store: module.get(RecordStore), lrange, lpush, ltrim, multi, quit };
 };
 
 describe('RecordStore', () => {
@@ -42,60 +67,106 @@ describe('RecordStore', () => {
     expect(createConnection).toHaveBeenNthCalledWith(1, url);
   });
 
-  it('returns nothing when an artifact has never been rendered', async () => {
-    const { store } = await setup();
+  describe('history', () => {
+    it('is empty for an artifact never rendered', async () => {
+      const { store } = await setup();
 
-    await expect(store.get(cvPdfJob)).resolves.toBeNull();
-  });
-
-  it('returns what the last render produced', async () => {
-    const stored = JSON.stringify({
-      at: '2026-08-17T12:00:00.000Z',
-      result: publicUrl,
+      await expect(store.history(cvPdfJob)).resolves.toEqual([]);
     });
-    const { store } = await setup({ stored });
 
-    await expect(store.get(cvPdfJob)).resolves.toEqual({
-      at: '2026-08-17T12:00:00.000Z',
-      result: publicUrl,
+    it('returns what was recorded', async () => {
+      const { store } = await setup({ stored: [JSON.stringify(record)] });
+
+      await expect(store.history(cvPdfJob)).resolves.toEqual([record]);
+    });
+
+    it('reads no more than it keeps', async () => {
+      const { store, lrange } = await setup();
+
+      await store.history(cvPdfJob);
+
+      expect(lrange).toHaveBeenNthCalledWith(
+        1,
+        `${prefix}:${cvPdfJob}`,
+        0,
+        limit - 1,
+      );
+    });
+
+    /* One bad entry should not take the rest of the history with it. */
+    it('drops an unreadable entry and keeps the others', async () => {
+      const { store } = await setup({
+        stored: ['not json', JSON.stringify(record)],
+      });
+
+      await expect(store.history(cvPdfJob)).resolves.toEqual([record]);
+    });
+
+    it('drops an entry of the wrong shape', async () => {
+      const { store } = await setup({
+        stored: [JSON.stringify({ at: 'now' }), JSON.stringify(record)],
+      });
+
+      await expect(store.history(cvPdfJob)).resolves.toEqual([record]);
     });
   });
 
-  /* A status page is not worth failing over a value someone edited by hand,
-     and the next render replaces it. */
-  it('treats unparseable stored data as nothing recorded', async () => {
-    const { store } = await setup({ stored: 'not json' });
+  describe('add', () => {
+    it('pushes onto the front, so the newest render reads first', async () => {
+      const { store, lpush } = await setup();
 
-    await expect(store.get(cvPdfJob)).resolves.toBeNull();
-  });
+      await store.add(cvPdfJob, outcome);
 
-  it('treats a stored value of the wrong shape as nothing recorded', async () => {
-    const { store } = await setup({ stored: JSON.stringify({ at: 1 }) });
+      expect(lpush).toHaveBeenNthCalledWith(
+        1,
+        `${prefix}:${cvPdfJob}`,
+        expect.stringContaining(publicUrl),
+      );
+    });
 
-    await expect(store.get(cvPdfJob)).resolves.toBeNull();
-  });
+    it('trims to the limit, so a render loop cannot grow the list', async () => {
+      const { store, ltrim } = await setup();
 
-  it("namespaces keys so the queue's own keys cannot collide", async () => {
-    const { store, set } = await setup();
+      await store.add(cvPdfJob, outcome);
 
-    await store.set(cvPdfJob, publicUrl);
+      expect(ltrim).toHaveBeenNthCalledWith(
+        1,
+        `${prefix}:${cvPdfJob}`,
+        0,
+        limit - 1,
+      );
+    });
 
-    expect(set).toHaveBeenNthCalledWith(
-      1,
-      `${prefix}:${cvPdfJob}`,
-      expect.stringContaining(publicUrl),
-    );
-  });
+    it('writes both in one round trip', async () => {
+      const { store, multi } = await setup();
 
-  it('stamps the time the render finished', async () => {
-    const { store, set } = await setup();
+      await store.add(cvPdfJob, outcome);
 
-    await store.set(cvPdfJob, publicUrl);
+      expect(multi).toHaveBeenCalledTimes(1);
+    });
 
-    const [, written] = set.mock.calls[0];
-    const { at } = JSON.parse(written) as { at: string };
+    it('keeps what the render cost', async () => {
+      const { store, lpush } = await setup();
 
-    expect(Number.isNaN(Date.parse(at))).toBe(false);
+      await store.add(cvPdfJob, outcome);
+
+      const [, written] = lpush.mock.calls[0];
+
+      expect(JSON.parse(written) as TRecord).toMatchObject(outcome);
+    });
+
+    /* Stamped here, so a caller cannot record a render as having happened at
+       a time of its choosing. */
+    it('stamps the time itself', async () => {
+      const { store, lpush } = await setup();
+
+      await store.add(cvPdfJob, outcome);
+
+      const [, written] = lpush.mock.calls[0];
+      const { at } = JSON.parse(written) as TRecord;
+
+      expect(Number.isNaN(Date.parse(at))).toBe(false);
+    });
   });
 
   it('closes the connection on shutdown', async () => {
@@ -108,19 +179,18 @@ describe('RecordStore', () => {
 });
 
 describe('isRecord', () => {
-  it.each([['a full record', { at: 'now', result: 'url' }]])(
-    'accepts %s',
-    (_label, value) => {
-      expect(isRecord(value)).toBe(true);
-    },
-  );
+  it('accepts a full record', () => {
+    expect(isRecord(record)).toBe(true);
+  });
 
   it.each([
     ['null', null],
     ['a string', 'nope'],
-    ['a record with no time', { result: 'url' }],
-    ['a record with no result', { at: 'now' }],
-    ['a record with the wrong types', { at: 1, result: 2 }],
+    ['no time', { ...record, at: undefined }],
+    ['no result', { ...record, result: undefined }],
+    ['a duration that is not a number', { ...record, durationMs: 'ages' }],
+    ['no attempts', { ...record, attempts: undefined }],
+    ['no elapsed time', { ...record, elapsedMs: undefined }],
   ])('rejects %s', (_label, value) => {
     expect(isRecord(value)).toBe(false);
   });

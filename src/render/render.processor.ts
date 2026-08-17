@@ -25,6 +25,14 @@ import { captureStartupImages, objectHeaders } from './startup-images';
    for memory and make both renders slower and less reliable. */
 const concurrency = 1;
 
+/* What a successful pass produced and how long it took. Returned rather than
+   logged and dropped, because the completed event is where it is recorded and
+   the event only carries what process returns. */
+type TResult = {
+  result: string;
+  durationMs: number;
+};
+
 const unchangedMessage =
   'The page has not changed yet — the site is still revalidating';
 
@@ -41,10 +49,19 @@ export class RenderProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job<TRenderJob>): Promise<string> {
-    return job.name === startupImagesJob
-      ? await this.startupImages(job)
-      : await this.cvPdf(job);
+  /* Timed here rather than in each render, so there is one clock and no way
+     to add an artifact that renders but reports no duration. The measurement
+     starts before the content check, so an attempt that renders includes the
+     hash fetch that let it — which is the work that actually happened. */
+  async process(job: Job<TRenderJob>): Promise<TResult> {
+    const startedAt = Date.now();
+
+    const result =
+      job.name === startupImagesJob
+        ? await this.startupImages(job)
+        : await this.cvPdf(job);
+
+    return { result, durationMs: Date.now() - startedAt };
   }
 
   /* Without these, a thrown job is silent: BullMQ catches it, schedules a
@@ -62,12 +79,24 @@ export class RenderProcessor extends WorkerHost {
   /* Recorded here rather than inside each render, so there is one place a
      success is written down and no way to add an artifact that renders but
      never reports. The log stays: it is what you read while watching a
-     deploy, and the record is what answers a question hours later. */
-  @OnWorkerEvent('completed')
-  async onCompleted(job: Job<TRenderJob>, result: string): Promise<void> {
-    this.logger.log(`${job.name} #${job.id} finished: ${result}`);
+     deploy, and the record is what answers a question days later.
 
-    if (isArtifact(job.name)) await this.records.set(job.name, result);
+     `elapsedMs` is measured from the job's own timestamp, so it spans every
+     attempt including the backoff between them — the gap between it and
+     `durationMs` is how long the site took to catch up after a publish. */
+  @OnWorkerEvent('completed')
+  async onCompleted(job: Job<TRenderJob>, outcome: TResult): Promise<void> {
+    this.logger.log(`${job.name} #${job.id} finished: ${outcome.result}`);
+
+    if (!isArtifact(job.name)) return;
+
+    await this.records.add(job.name, {
+      ...outcome,
+      /* BullMQ counts a first, uneventful pass as zero attempts made. Nobody
+         reading a status page thinks a render that happened took none. */
+      attempts: Math.max(job.attemptsMade, 1),
+      elapsedMs: Date.now() - job.timestamp,
+    });
   }
 
   private async cvPdf(job: Job<TRenderJob>): Promise<string> {
@@ -162,3 +191,4 @@ export class RenderProcessor extends WorkerHost {
 }
 
 export { concurrency, unchangedMessage };
+export type { TResult };
