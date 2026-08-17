@@ -108,6 +108,42 @@ it tells anybody something they could not learn by watching the site. The
 minute-long `cache-control` stops it being used to probe the service or to keep
 the machine awake.
 
+## The integrity check
+
+Artifacts are only ever re-made when the CMS publishes. A change shipped from
+the site's own repo — a print stylesheet, a font, a layout fix — changes the
+page without touching Hygraph, so the PDF and the splash screens quietly drift
+from what they are supposed to depict. `POST /render/cv-pdf` exists precisely
+because of that, which is an admission that the automation has a gap rather
+than a fix for it.
+
+Weekly, this hashes the live pages an artifact is derived from and compares
+that against the hash of whatever was last rendered from them. On a mismatch it
+queues a render — unforced, so the render's own content check still waits for
+the site rather than skipping the retry ladder.
+
+The result of the last check is reported by `GET /status`, per artifact:
+
+| Field     | Means                                                                             |
+| --------- | --------------------------------------------------------------------------------- |
+| `drifted` | The live page no longer matches what was last rendered from it.                   |
+| `queued`  | This check enqueued a render to put that right.                                   |
+| `stale`   | It drifted, a previous check already queued a render, and it is _still_ drifting. |
+
+`stale` is the one to care about: something is wrong that re-rendering will not
+fix. The check deliberately stops queueing at that point rather than asking
+again every week, which would be a slow loop that never fixes anything and
+hides the problem in a normal-looking log line.
+
+Two things it does not do. Nothing rendered yet is not drift — there is no
+previous version to have drifted from, and queueing there would fight whatever
+is meant to produce the first one. And it only runs at all because the machine
+stopped sleeping: a timer in a stopped container never fires.
+
+A deploy hook from the site would be tighter than a schedule, and is the better
+answer if that pipeline ever calls this. The schedule is the version that needs
+no coupling between two deploys.
+
 ## The contact endpoint
 
 `POST /contact` is the one route a person waits on, which makes it the

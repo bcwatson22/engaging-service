@@ -22,6 +22,8 @@ import { SecretGuard } from './secret.guard';
   ],
   /* RecordStore is exported for the status module, which reads what the
      processor writes. */
-  exports: [RenderService, RecordStore],
+  /* HashStore is exported for the integrity check, which compares the live
+     page against the hash of whatever was last rendered from it. */
+  exports: [RenderService, RecordStore, HashStore],
 })
 export class RenderModule {}
