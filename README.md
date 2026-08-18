@@ -1,6 +1,128 @@
-# engaging-service
+# Engaging Service
 
-Render service for [engaging.engineering](https://www.engaging.engineering) — a [NestJS](https://nestjs.com/) app that generates the site's browser-rendered artifacts on a queue, instead of inside the site's build.
+[![CI](https://github.com/bcwatson22/engaging-service/actions/workflows/ci.yml/badge.svg)](https://github.com/bcwatson22/engaging-service/actions/workflows/ci.yml)
+![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen)
+
+Render service for [engaging.engineering](https://www.engaging.engineering) — a [NestJS](https://nestjs.com/) app that generates the site's browser-rendered artifacts on a queue, instead of inside the site's build. The site itself lives in [engaging](https://github.com/bcwatson22/engaging).
+
+## Stack
+
+### NestJS
+
+<table>
+  <tr>
+    <td width="58">
+      <img src="https://cdn.simpleicons.org/nestjs" alt="NestJS icon" width="32" />
+    </td>
+    <td>
+      Modules, DI and lifecycle hooks give the queue, the schedulers and the HTTP surface one shape, and its testing module makes the wiring assertable rather than mocked around.
+    </td>
+  </tr>
+</table>
+
+### TypeScript
+
+<table>
+  <tr>
+    <td width="58">
+      <img src="https://cdn.simpleicons.org/typescript" alt="TypeScript icon" width="32" />
+    </td>
+    <td>
+      Strict throughout, with <a href="https://zod.dev/">Zod</a> validating the environment at boot - so a missing secret fails the release rather than the first request that happens to need it.
+    </td>
+  </tr>
+</table>
+
+### Puppeteer
+
+<table>
+  <tr>
+    <td width="58">
+      <img src="https://cdn.simpleicons.org/puppeteer" alt="Puppeteer icon" width="32" />
+    </td>
+    <td>
+      Drives headless Chrome over the live site to produce the CV PDF and the 22 PWA splash screens. A render takes 10-20 seconds, which is why it lives here and not in a serverless function.
+    </td>
+  </tr>
+</table>
+
+### BullMQ & Redis
+
+<table>
+  <tr>
+    <td width="58">
+      <img src="https://cdn.simpleicons.org/redis" alt="Redis icon" width="32" />
+    </td>
+    <td>
+      The webhook returns as soon as the job is queued, so the CMS never waits on a render. Redis also backs the contact form’s rate limiting.
+    </td>
+  </tr>
+</table>
+
+### Cloudflare R2
+
+<table>
+  <tr>
+    <td width="58">
+      <img src="https://cdn.simpleicons.org/cloudflare" alt="Cloudflare icon" width="32" />
+    </td>
+    <td>
+      Rendered artifacts are uploaded here over the S3 API and served through the site’s own domain, so visitors never see a bucket URL and Vercel’s CDN absorbs the traffic.
+    </td>
+  </tr>
+</table>
+
+### Resend
+
+<table>
+  <tr>
+    <td width="58">
+      <img src="https://cdn.simpleicons.org/resend" alt="Resend icon" width="32" />
+    </td>
+    <td>
+      Sends the contact form from a verified address on this domain with the visitor in <code>reply_to</code>, which keeps DMARC happy and still lets a reply reach whoever wrote in.
+    </td>
+  </tr>
+</table>
+
+### Fly.io
+
+<table>
+  <tr>
+    <td width="58">
+      <img src="https://cdn.simpleicons.org/flydotio" alt="Fly.io icon" width="32" />
+    </td>
+    <td>
+      A long-lived container, which a ~150 MB browser binary needs. One machine stays resident so the contact form never meets a cold boot - see <a href="#why-the-machine-no-longer-sleeps">below</a> for the measurements behind that.
+    </td>
+  </tr>
+</table>
+
+### Vitest
+
+<table>
+  <tr>
+    <td width="58">
+      <img src="https://cdn.simpleicons.org/vitest" alt="Vitest icon" width="32" />
+    </td>
+    <td>
+      100% coverage, with thresholds set in <code>vitest.config.mts</code> and enforced by CI. Composition roots are excluded and covered by the e2e path instead.
+    </td>
+  </tr>
+</table>
+
+### Rust
+
+<table>
+  <tr>
+    <td width="58">
+      <img src="https://cdn.simpleicons.org/rust" alt="Rust icon" width="32" />
+    </td>
+    <td>
+      Only indirectly: <a href="https://oxc.rs/">oxlint and oxfmt</a> are compiled Rust binaries and handle all linting and formatting here. No Rust is written in this repo. It is worth naming because the toolchain is where most TypeScript projects meet the language first.
+    </td>
+  </tr>
+</table>
 
 ## Why it exists
 
