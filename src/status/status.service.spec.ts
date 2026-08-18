@@ -2,6 +2,7 @@ import { getQueueToken } from '@nestjs/bullmq';
 import { Test } from '@nestjs/testing';
 
 import { CheckStore, type TCheck } from '../integrity/check.store';
+import { SweepStore, type TSweep } from '../links/sweep.store';
 import { RecordStore, type TRecord } from '../render/record.store';
 import {
   cvPdfJob,
@@ -25,13 +26,25 @@ const check: TCheck = {
   stale: false,
 };
 
+const sweep: TSweep = {
+  at: '2026-08-17T12:00:00.000Z',
+  checked: 12,
+  problems: [],
+};
+
 type TOptions = {
+  links?: TSweep | null;
   records?: Record<string, TRecord[]>;
   checks?: Record<string, TCheck | null>;
   counts?: Record<string, number>;
 };
 
-const setup = async ({ records = {}, checks = {}, counts }: TOptions = {}) => {
+const setup = async ({
+  records = {},
+  checks = {},
+  links = null,
+  counts,
+}: TOptions = {}) => {
   const history = vi
     .fn<(artifact: string) => Promise<TRecord[]>>()
     .mockImplementation((artifact) => Promise.resolve(records[artifact] ?? []));
@@ -53,6 +66,12 @@ const setup = async ({ records = {}, checks = {}, counts }: TOptions = {}) => {
       StatusService,
       { provide: RecordStore, useValue: { history } },
       { provide: CheckStore, useValue: { get: getCheck } },
+      {
+        provide: SweepStore,
+        useValue: {
+          get: vi.fn<() => Promise<TSweep | null>>().mockResolvedValue(links),
+        },
+      },
       { provide: getQueueToken(renderQueue), useValue: { getJobCounts } },
     ],
   }).compile();
@@ -91,6 +110,18 @@ describe('StatusService', () => {
     await expect(service.read()).resolves.toMatchObject({
       integrity: { [cvPdfJob]: check, [startupImagesJob]: null },
     });
+  });
+
+  it('reports what the last link sweep found', async () => {
+    const { service } = await setup({ links: sweep });
+
+    await expect(service.read()).resolves.toMatchObject({ links: sweep });
+  });
+
+  it('reports no sweep before one has run', async () => {
+    const { service } = await setup();
+
+    await expect(service.read()).resolves.toMatchObject({ links: null });
   });
 
   it('reports the queue depth', async () => {

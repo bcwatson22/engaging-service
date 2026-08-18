@@ -8,6 +8,7 @@ import { validate } from './config/env.schema';
 import { ContactModule } from './contact/contact.module';
 import { HealthModule } from './health/health.module';
 import { IntegrityModule } from './integrity/integrity.module';
+import { LinksModule } from './links/links.module';
 import { createConnection } from './redis/connection';
 import { RenderModule } from './render/render.module';
 import { StatusModule } from './status/status.module';
@@ -29,6 +30,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     ContactModule,
     HealthModule,
     IntegrityModule,
+    LinksModule,
     RenderModule,
     StatusModule,
     WebhooksModule,
