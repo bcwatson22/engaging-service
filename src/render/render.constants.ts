@@ -30,20 +30,19 @@ const startupImages = {
   key: 'startup-images',
 } as const;
 
-/* The machine sleeps after roughly two minutes without traffic, and a
-   delayed retry does not wake it — an incoming request does, a timer in Redis
-   does not. So the whole ladder has to fit inside the window the machine is
-   awake for, or its tail is stranded until something else happens to wake the
-   box, leaving an artifact silently stale until the next publish.
+/* The CMS notifies the site and this service at the same moment, so the first
+   attempt usually lands while the page is still serving its previous render.
+   The ladder only has to outlast that revalidation.
 
-   Five attempts from 5s gives 5 + 10 + 20 + 40 = 75 seconds, comfortably
-   inside it. At 10s it was 150 seconds and the last two attempts could fall
-   past the machine's bedtime. */
-const idleTimeout = 120_000;
-
+   It used to have a second job. A delayed retry does not wake a sleeping
+   machine — an incoming request does, a timer in Redis does not — so the whole
+   ladder had to fit inside the two minutes the box stayed awake, and the base
+   delay was cut from 10s to 5s to make it fit. `fly.toml` now keeps one
+   machine resident, which is what retired that constraint, so the delay goes
+   back to 10s: five attempts waiting 10 + 20 + 40 + 80 = 150 seconds. */
 const jobOptions = {
   attempts: 5,
-  backoff: { type: 'exponential', delay: 5_000 },
+  backoff: { type: 'exponential', delay: 10_000 },
   removeOnComplete: 20,
   removeOnFail: 50,
 } as const;
@@ -71,7 +70,6 @@ export {
   cvPdf,
   startupImages,
   jobOptions,
-  idleTimeout,
   totalBackoff,
 };
 export type { TRenderJob, TArtifact };

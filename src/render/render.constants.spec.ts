@@ -1,11 +1,11 @@
-import { idleTimeout, jobOptions, totalBackoff } from './render.constants';
+import { jobOptions, totalBackoff } from './render.constants';
 
 describe('jobOptions', () => {
-  /* A delayed retry does not wake a sleeping machine — only an incoming
-     request does. If the ladder outlasts the idle timeout its final attempts
-     never fire, and the artifact stays stale with nothing to signal it. */
-  it('finishes every attempt before the machine can sleep', () => {
-    expect(totalBackoff()).toBeLessThan(idleTimeout);
+  /* The ladder exists to outlast the site's revalidation after a publish.
+     Two minutes is the slowest revalidation seen; anything shorter risks
+     giving up while the page is still serving its previous render. */
+  it('stays patient for longer than a slow revalidation', () => {
+    expect(totalBackoff()).toBeGreaterThanOrEqual(120_000);
   });
 
   it('still retries enough times to outlast a slow revalidation', () => {
