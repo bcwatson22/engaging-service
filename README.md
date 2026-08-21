@@ -1,7 +1,7 @@
 # Engaging Service
 
 [![CI](https://github.com/bcwatson22/engaging-service/actions/workflows/ci.yml/badge.svg)](https://github.com/bcwatson22/engaging-service/actions/workflows/ci.yml)
-![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen)
+![Coverage 100%](https://img.shields.io/badge/coverage-100%25-2EBB4F?labelColor=343B42)
 
 Render service for [engaging.engineering](https://www.engaging.engineering) — a [NestJS](https://nestjs.com/) app that generates the site's browser-rendered artifacts on a queue, instead of inside the site's build. The site itself lives in [engaging](https://github.com/bcwatson22/engaging).
 
@@ -12,7 +12,7 @@ Render service for [engaging.engineering](https://www.engaging.engineering) — 
 <table>
   <tr>
     <td width="58">
-      <img src="https://cdn.simpleicons.org/nestjs" alt="NestJS icon" width="32" />
+      <img src="https://cdn.simpleicons.org/nestjs/E0234E/E0234E" alt="NestJS icon" width="32" />
     </td>
     <td>
       Modules, DI and lifecycle hooks give the queue, the schedulers and the HTTP surface one shape, and its testing module makes the wiring assertable rather than mocked around.
@@ -25,7 +25,7 @@ Render service for [engaging.engineering](https://www.engaging.engineering) — 
 <table>
   <tr>
     <td width="58">
-      <img src="https://cdn.simpleicons.org/typescript" alt="TypeScript icon" width="32" />
+      <img src="https://cdn.simpleicons.org/typescript/3178C6/3178C6" alt="TypeScript icon" width="32" />
     </td>
     <td>
       Strict throughout, with <a href="https://zod.dev/">Zod</a> validating the environment at boot - so a missing secret fails the release rather than the first request that happens to need it.
@@ -38,7 +38,7 @@ Render service for [engaging.engineering](https://www.engaging.engineering) — 
 <table>
   <tr>
     <td width="58">
-      <img src="https://cdn.simpleicons.org/puppeteer" alt="Puppeteer icon" width="32" />
+      <img src="https://cdn.simpleicons.org/puppeteer/40B5A4/40B5A4" alt="Puppeteer icon" width="32" />
     </td>
     <td>
       Drives headless Chrome over the live site to produce the CV PDF and the 22 PWA splash screens. A render takes 10-20 seconds, which is why it lives here and not in a serverless function.
@@ -51,7 +51,7 @@ Render service for [engaging.engineering](https://www.engaging.engineering) — 
 <table>
   <tr>
     <td width="58">
-      <img src="https://cdn.simpleicons.org/redis" alt="Redis icon" width="32" />
+      <img src="https://cdn.simpleicons.org/redis/FF4438/FF4438" alt="Redis icon" width="32" />
     </td>
     <td>
       The webhook returns as soon as the job is queued, so the CMS never waits on a render. Redis also backs the contact form’s rate limiting.
@@ -64,7 +64,7 @@ Render service for [engaging.engineering](https://www.engaging.engineering) — 
 <table>
   <tr>
     <td width="58">
-      <img src="https://cdn.simpleicons.org/cloudflare" alt="Cloudflare icon" width="32" />
+      <img src="https://cdn.simpleicons.org/cloudflare/F38020/F38020" alt="Cloudflare icon" width="32" />
     </td>
     <td>
       Rendered artifacts are uploaded here over the S3 API and served through the site’s own domain, so visitors never see a bucket URL and Vercel’s CDN absorbs the traffic.
@@ -77,7 +77,7 @@ Render service for [engaging.engineering](https://www.engaging.engineering) — 
 <table>
   <tr>
     <td width="58">
-      <img src="https://cdn.simpleicons.org/resend" alt="Resend icon" width="32" />
+      <img src="https://cdn.simpleicons.org/resend/000000/FFFFFF" alt="Resend icon" width="32" />
     </td>
     <td>
       Sends the contact form from a verified address on this domain with the visitor in <code>reply_to</code>, which keeps DMARC happy and still lets a reply reach whoever wrote in.
@@ -90,7 +90,7 @@ Render service for [engaging.engineering](https://www.engaging.engineering) — 
 <table>
   <tr>
     <td width="58">
-      <img src="https://cdn.simpleicons.org/flydotio" alt="Fly.io icon" width="32" />
+      <img src="https://cdn.simpleicons.org/flydotio/24175B/8478CC" alt="Fly.io icon" width="32" />
     </td>
     <td>
       A long-lived container, which a ~150 MB browser binary needs. One machine stays resident so the contact form never meets a cold boot - see <a href="#why-the-machine-no-longer-sleeps">below</a> for the measurements behind that.
@@ -103,7 +103,7 @@ Render service for [engaging.engineering](https://www.engaging.engineering) — 
 <table>
   <tr>
     <td width="58">
-      <img src="https://cdn.simpleicons.org/vitest" alt="Vitest icon" width="32" />
+      <img src="https://cdn.simpleicons.org/vitest/068C46/00FF74" alt="Vitest icon" width="32" />
     </td>
     <td>
       100% coverage, with thresholds set in <code>vitest.config.mts</code> and enforced by CI. Composition roots are excluded and covered by the e2e path instead.
@@ -116,7 +116,7 @@ Render service for [engaging.engineering](https://www.engaging.engineering) — 
 <table>
   <tr>
     <td width="58">
-      <img src="https://cdn.simpleicons.org/rust" alt="Rust icon" width="32" />
+      <img src="https://cdn.simpleicons.org/rust/000000/FFFFFF" alt="Rust icon" width="32" />
     </td>
     <td>
       Only indirectly: <a href="https://oxc.rs/">oxlint and oxfmt</a> are compiled Rust binaries and handle all linting and formatting here. No Rust is written in this repo. It is worth naming because the toolchain is where most TypeScript projects meet the language first.
