@@ -13,8 +13,10 @@ import { renderPdf } from './pdf';
 import { RecordStore } from './record.store';
 import {
   cvPdf,
+  drainDelay,
   isArtifact,
   renderQueue,
+  stalledInterval,
   startupImages,
   startupImagesJob,
   type TRenderJob,
@@ -36,7 +38,9 @@ type TResult = {
 const unchangedMessage =
   'The page has not changed yet — the site is still revalidating';
 
-@Processor(renderQueue, { concurrency })
+/* The idle cost of this worker is the thing being tuned here, not its
+   throughput — see the two constants for the numbers behind them. */
+@Processor(renderQueue, { concurrency, drainDelay, stalledInterval })
 export class RenderProcessor extends WorkerHost {
   private readonly logger = new Logger(RenderProcessor.name);
 
