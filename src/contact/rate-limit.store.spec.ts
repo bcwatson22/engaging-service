@@ -1,7 +1,6 @@
-import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 
-import { createConnection } from '../redis/connection';
+import { redisClient } from '../redis/redis.module';
 import {
   maxPerAddress,
   maxPerIdentity,
@@ -10,11 +9,6 @@ import {
   windowSeconds,
 } from './rate-limit.store';
 
-vi.mock('../redis/connection', () => ({
-  createConnection: vi.fn<(url: string) => unknown>(),
-}));
-
-const url = 'redis://127.0.0.1:6379';
 const address = '81.2.69.142';
 const identity = 'tom@example.com';
 
@@ -27,32 +21,19 @@ const setup = async (counts: number[] = [1, 1]) => {
     .fn<() => Promise<number>>()
     .mockImplementation(() => Promise.resolve(queued.shift() ?? 1));
   const expire = vi.fn<() => Promise<number>>().mockResolvedValue(1);
-  const quit = vi.fn<() => Promise<'OK'>>().mockResolvedValue('OK');
-
-  vi.mocked(createConnection).mockReturnValue({
-    incr,
-    expire,
-    quit,
-  } as never);
 
   const module = await Test.createTestingModule({
     providers: [
+      { provide: redisClient, useValue: { incr, expire } },
       RateLimitStore,
-      { provide: ConfigService, useValue: { get: () => url } },
     ],
   }).compile();
 
-  return { store: module.get(RateLimitStore), incr, expire, quit };
+  return { store: module.get(RateLimitStore), incr, expire };
 };
 
 describe('RateLimitStore', () => {
   beforeEach(() => vi.clearAllMocks());
-
-  it('connects through the shared factory, so it gets the same resilience settings', async () => {
-    await setup();
-
-    expect(createConnection).toHaveBeenNthCalledWith(1, url);
-  });
 
   it('allows a first submission', async () => {
     const { store } = await setup();
@@ -108,13 +89,5 @@ describe('RateLimitStore', () => {
     await store.allows(address, identity);
 
     expect(incr).toHaveBeenCalledTimes(2);
-  });
-
-  it('closes the connection on shutdown', async () => {
-    const { store, quit } = await setup();
-
-    await store.onModuleDestroy();
-
-    expect(quit).toHaveBeenCalledTimes(1);
   });
 });

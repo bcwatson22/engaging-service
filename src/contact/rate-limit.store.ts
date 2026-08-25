@@ -1,9 +1,7 @@
-import { Injectable, type OnModuleDestroy } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable } from '@nestjs/common';
 import type IORedis from 'ioredis';
 
-import type { TEnv } from '../config/env.schema';
-import { createConnection } from '../redis/connection';
+import { redisClient } from '../redis/redis.module';
 
 const prefix = 'contact-rate';
 
@@ -18,14 +16,8 @@ const maxPerAddress = 5;
 const maxPerIdentity = 3;
 
 @Injectable()
-export class RateLimitStore implements OnModuleDestroy {
-  /* Its own connection, matching HashStore: BullMQ's client holds blocking
-     reads and sharing it would stall a lookup that a visitor is waiting on. */
-  private readonly client: IORedis;
-
-  constructor(config: ConfigService<TEnv, true>) {
-    this.client = createConnection(config.get('REDIS_URL', { infer: true }));
-  }
+export class RateLimitStore {
+  constructor(@Inject(redisClient) private readonly client: IORedis) {}
 
   /* INCR then EXPIRE on first hit, so the window starts at the first request
      rather than sliding forward with each one — otherwise a steady trickle
@@ -52,10 +44,6 @@ export class RateLimitStore implements OnModuleDestroy {
     ]);
 
     return byAddress && byIdentity;
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.client.quit();
   }
 }
 

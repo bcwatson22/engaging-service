@@ -45,10 +45,13 @@ const startupImages = {
    queue and absurd for this one: idle, it was the largest single contributor
    to 155,000 Redis commands a day, for a queue that runs twice a month.
 
-   A minute costs nothing here. Nothing user-facing waits on a render, and a
-   job enqueued by a webhook wakes the worker immediately rather than waiting
-   for this to expire — the delay only applies to an idle poll. */
-const drainDelay = 60;
+   Five minutes costs nothing here. Nothing user-facing waits on a render, and
+   enqueueing writes the marker key this read is blocked on, so a real job
+   wakes the worker immediately — the delay only ever applies to an idle poll.
+
+   Was 60s, which took the queue from ~108 commands a minute to ~9. This takes
+   the remainder of the polling down by another fifth. */
+const drainDelay = 300;
 
 /* How often the worker looks for jobs whose processor died mid-render.
    BullMQ checks every 30 seconds by default. At two renders a month, five
