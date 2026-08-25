@@ -1,7 +1,6 @@
-import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 
-import { createConnection } from '../redis/connection';
+import { redisClient } from '../redis/redis.module';
 import {
   isRecord,
   limit,
@@ -12,11 +11,6 @@ import {
 } from './record.store';
 import { cvPdfJob } from './render.constants';
 
-vi.mock('../redis/connection', () => ({
-  createConnection: vi.fn<(url: string) => unknown>(),
-}));
-
-const url = 'redis://127.0.0.1:6379';
 const publicUrl = 'https://artifacts.example.com/billy-watson-cv.pdf';
 
 const outcome: TOutcome = {
@@ -33,7 +27,6 @@ const setup = async ({ stored = [] as string[] } = {}) => {
   const lpush = vi.fn<(key: string, value: string) => unknown>();
   const ltrim = vi.fn<(key: string, start: number, stop: number) => unknown>();
   const exec = vi.fn<() => Promise<unknown>>().mockResolvedValue([]);
-  const quit = vi.fn<() => Promise<'OK'>>().mockResolvedValue('OK');
 
   /* Chained, the way ioredis returns the pipeline from each call. */
   const chain = { lpush, ltrim, exec };
@@ -42,30 +35,18 @@ const setup = async ({ stored = [] as string[] } = {}) => {
 
   const multi = vi.fn<() => typeof chain>().mockReturnValue(chain);
 
-  vi.mocked(createConnection).mockReturnValue({
-    lrange,
-    multi,
-    quit,
-  } as never);
-
   const module = await Test.createTestingModule({
     providers: [
+      { provide: redisClient, useValue: { lrange, multi } },
       RecordStore,
-      { provide: ConfigService, useValue: { get: () => url } },
     ],
   }).compile();
 
-  return { store: module.get(RecordStore), lrange, lpush, ltrim, multi, quit };
+  return { store: module.get(RecordStore), lrange, lpush, ltrim, multi };
 };
 
 describe('RecordStore', () => {
   beforeEach(() => vi.clearAllMocks());
-
-  it('connects through the shared factory, so it gets the same resilience settings', async () => {
-    await setup();
-
-    expect(createConnection).toHaveBeenNthCalledWith(1, url);
-  });
 
   describe('history', () => {
     it('is empty for an artifact never rendered', async () => {
@@ -167,14 +148,6 @@ describe('RecordStore', () => {
 
       expect(Number.isNaN(Date.parse(at))).toBe(false);
     });
-  });
-
-  it('closes the connection on shutdown', async () => {
-    const { store, quit } = await setup();
-
-    await store.onModuleDestroy();
-
-    expect(quit).toHaveBeenCalledTimes(1);
   });
 });
 

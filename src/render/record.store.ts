@@ -1,9 +1,7 @@
-import { Injectable, type OnModuleDestroy } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable } from '@nestjs/common';
 import type IORedis from 'ioredis';
 
-import type { TEnv } from '../config/env.schema';
-import { createConnection } from '../redis/connection';
+import { redisClient } from '../redis/redis.module';
 import type { TArtifact } from './render.constants';
 
 /* A new prefix rather than the single key this replaced. That key holds a
@@ -54,14 +52,10 @@ const isRecord = (value: unknown): value is TRecord => {
 };
 
 @Injectable()
-export class RecordStore implements OnModuleDestroy {
+export class RecordStore {
   /* Its own connection, matching the other stores: BullMQ's client holds
      blocking reads and sharing it would stall a lookup. */
-  private readonly client: IORedis;
-
-  constructor(config: ConfigService<TEnv, true>) {
-    this.client = createConnection(config.get('REDIS_URL', { infer: true }));
-  }
+  constructor(@Inject(redisClient) private readonly client: IORedis) {}
 
   /* Newest first, so the page's "last rendered" is the head of the list and
      needs no sorting. */
@@ -88,10 +82,6 @@ export class RecordStore implements OnModuleDestroy {
       .lpush(key, JSON.stringify(record))
       .ltrim(key, 0, limit - 1)
       .exec();
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.client.quit();
   }
 }
 

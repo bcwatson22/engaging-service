@@ -1,9 +1,7 @@
-import { Injectable, type OnModuleDestroy } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable } from '@nestjs/common';
 import type IORedis from 'ioredis';
 
-import type { TEnv } from '../config/env.schema';
-import { createConnection } from '../redis/connection';
+import { redisClient } from '../redis/redis.module';
 import type { TArtifact } from '../render/render.constants';
 
 const prefix = 'integrity-check';
@@ -39,12 +37,8 @@ const isCheck = (value: unknown): value is TCheck => {
 };
 
 @Injectable()
-export class CheckStore implements OnModuleDestroy {
-  private readonly client: IORedis;
-
-  constructor(config: ConfigService<TEnv, true>) {
-    this.client = createConnection(config.get('REDIS_URL', { infer: true }));
-  }
+export class CheckStore {
+  constructor(@Inject(redisClient) private readonly client: IORedis) {}
 
   async get(artifact: TArtifact): Promise<TCheck | null> {
     const stored = await this.client.get(`${prefix}:${artifact}`);
@@ -67,10 +61,6 @@ export class CheckStore implements OnModuleDestroy {
     const check: TCheck = { at: new Date().toISOString(), ...outcome };
 
     await this.client.set(`${prefix}:${artifact}`, JSON.stringify(check));
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.client.quit();
   }
 }
 

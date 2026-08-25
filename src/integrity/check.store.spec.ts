@@ -1,15 +1,8 @@
-import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 
-import { createConnection } from '../redis/connection';
+import { redisClient } from '../redis/redis.module';
 import { cvPdfJob } from '../render/render.constants';
 import { CheckStore, isCheck, prefix, type TCheck } from './check.store';
-
-vi.mock('../redis/connection', () => ({
-  createConnection: vi.fn<(url: string) => unknown>(),
-}));
-
-const url = 'redis://127.0.0.1:6379';
 
 const check: TCheck = {
   at: '2026-08-17T12:00:00.000Z',
@@ -23,28 +16,16 @@ const setup = async ({ stored = null as string | null } = {}) => {
   const set = vi
     .fn<(key: string, value: string) => Promise<'OK'>>()
     .mockResolvedValue('OK');
-  const quit = vi.fn<() => Promise<'OK'>>().mockResolvedValue('OK');
-
-  vi.mocked(createConnection).mockReturnValue({ get, set, quit } as never);
 
   const module = await Test.createTestingModule({
-    providers: [
-      CheckStore,
-      { provide: ConfigService, useValue: { get: () => url } },
-    ],
+    providers: [{ provide: redisClient, useValue: { get, set } }, CheckStore],
   }).compile();
 
-  return { store: module.get(CheckStore), get, set, quit };
+  return { store: module.get(CheckStore), get, set };
 };
 
 describe('CheckStore', () => {
   beforeEach(() => vi.clearAllMocks());
-
-  it('connects through the shared factory, so it gets the same resilience settings', async () => {
-    await setup();
-
-    expect(createConnection).toHaveBeenNthCalledWith(1, url);
-  });
 
   it('returns nothing before a check has run', async () => {
     const { store } = await setup();
@@ -98,14 +79,6 @@ describe('CheckStore', () => {
     const { at } = JSON.parse(set.mock.calls[0][1]) as TCheck;
 
     expect(Number.isNaN(Date.parse(at))).toBe(false);
-  });
-
-  it('closes the connection on shutdown', async () => {
-    const { store, quit } = await setup();
-
-    await store.onModuleDestroy();
-
-    expect(quit).toHaveBeenCalledTimes(1);
   });
 });
 

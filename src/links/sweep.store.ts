@@ -1,9 +1,7 @@
-import { Injectable, type OnModuleDestroy } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable } from '@nestjs/common';
 import type IORedis from 'ioredis';
 
-import type { TEnv } from '../config/env.schema';
-import { createConnection } from '../redis/connection';
+import { redisClient } from '../redis/redis.module';
 import type { TResult } from './check';
 
 const key = 'link-sweep';
@@ -45,12 +43,8 @@ const isSweep = (value: unknown): value is TSweep => {
 };
 
 @Injectable()
-export class SweepStore implements OnModuleDestroy {
-  private readonly client: IORedis;
-
-  constructor(config: ConfigService<TEnv, true>) {
-    this.client = createConnection(config.get('REDIS_URL', { infer: true }));
-  }
+export class SweepStore {
+  constructor(@Inject(redisClient) private readonly client: IORedis) {}
 
   async get(): Promise<TSweep | null> {
     const stored = await this.client.get(key);
@@ -74,10 +68,6 @@ export class SweepStore implements OnModuleDestroy {
     };
 
     await this.client.set(key, JSON.stringify(sweep));
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.client.quit();
   }
 }
 
