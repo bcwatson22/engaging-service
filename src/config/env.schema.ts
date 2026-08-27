@@ -14,6 +14,11 @@ const envSchema = z.object({
 
   REDIS_URL: z.url(),
 
+  /* The Go render worker, over Fly's private network. Must be the Flycast
+     address rather than `.internal`: 6PN bypasses the proxy, and only
+     proxy-routed traffic starts a stopped machine. */
+  WORKER_URL: z.url(),
+
   /* Shared secret for the manual render trigger. The Hygraph webhook has its
      own signature verification; this guards the endpoint used to re-render
      by hand. */

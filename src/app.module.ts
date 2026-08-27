@@ -13,6 +13,7 @@ import { createConnection } from './redis/connection';
 import { RedisModule } from './redis/redis.module';
 import { RenderModule } from './render/render.module';
 import { StatusModule } from './status/status.module';
+import { StreamModule } from './stream/stream.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
@@ -37,6 +38,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     LinksModule,
     RenderModule,
     StatusModule,
+    StreamModule,
     WebhooksModule,
   ],
 })

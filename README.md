@@ -142,6 +142,61 @@ The two webhooks are deliberately independent rather than chained: this service 
 
 The cost of that independence is a race — the worker can load a page before the site has finished revalidating, capturing stale content. The worker therefore hashes the live page before rendering and retries with backoff until the hash changes.
 
+## The render half is moving to Go
+
+Rendering is being split into [engaging-worker](https://github.com/bcwatson22/engaging-worker), a
+Go service with the same headless Chrome and none of the Node runtime. The point is not speed —
+the CV renders roughly twice a month — it is that a request-time tier should not ship a browser.
+This image was measured at **21.3 seconds to cold-boot against 46ms warm**, which is free where
+nothing waits and unusable for a contact form. Once the render moves out, this tier drops from
+1 GB to 256 MB and stays warm for about a third of what it costs today.
+
+Both paths run in parallel until the outputs have been compared over real publishes. Every
+enqueue goes to BullMQ _and_ to a Redis Stream; the Go worker renders to a `candidate/` key
+prefix, so nothing the site links to has moved. A failure on the stream path is logged and
+swallowed — it must never take down the path currently doing the work.
+
+### The queue between them
+
+BullMQ stopped being an implementation detail the moment the two ends were different languages:
+its payloads and retry bookkeeping live in Redis keys whose layout is undocumented and free to
+change in a minor release. So the contract is explicit instead — a stream, a consumer group, and
+a versioned payload both repos can read:
+
+```json
+{
+  "v": 1,
+  "job": "cv-pdf",
+  "contentHash": "…",
+  "requestedAt": "…",
+  "force": false
+}
+```
+
+`contentHash` is what was _last rendered_, not what is live now. Reading the live page here would
+put a network fetch on the webhook path to produce a value the worker recomputes anyway — by the
+time it runs, the site has usually finished revalidating. Recording the previous hash costs one
+lookup and makes a dead letter legible: it says which version the job was meant to supersede.
+
+Idempotency is a `SET NX` beside the stream rather than in it. A stream id cannot carry it —
+Redis ids must be `<ms>-<seq>`, and a content hash is rejected outright.
+
+### Waking the worker
+
+The worker sleeps between jobs, and an `XADD` cannot wake it: Fly only autostarts a machine on
+traffic through its proxy. So this service pings it after enqueueing, over a **Flycast** address.
+`engaging-worker.internal` would not do — 6PN bypasses the proxy entirely, so the request fails
+instantly against a stopped machine and wakes nothing, which looks exactly like the queue silently
+not working.
+
+The ping is deliberately not awaited. A wake can take the worker's full boot time, and the job is
+durable before it starts; a failed wake means a late render, not a lost one.
+
+`BackstopService` is the safety net for one that never lands, sweeping every fifteen minutes and
+waking the worker if anything is waiting or held. The interval is a cost decision rather than a
+habit — two commands a tick is ~1.2% of the monthly Redis allowance, where every minute would be
+~17.5%. This is a poller, and a poller is what caused #24, so it was costed before it was chosen.
+
 ## Status
 
 Under construction. See the branch table in the plan for what has landed.

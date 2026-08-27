@@ -3,6 +3,15 @@ primary_region = "lhr"
 
 [build]
 
+[env]
+# Not a secret — a private hostname on Fly's own network. Here rather than in
+# `fly secrets` so a change to it shows up in a diff.
+#
+# Flycast, not `.internal`: 6PN bypasses the Fly proxy, and only proxy-routed
+# traffic starts a stopped machine. Pointing this at .internal would fail to
+# wake the worker and look like the queue silently not working.
+WORKER_URL = "http://engaging-worker.flycast"
+
 [http_service]
 internal_port = 3000
 force_https = true
