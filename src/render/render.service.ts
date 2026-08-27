@@ -2,6 +2,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import type { Queue } from 'bullmq';
 
+import { StreamService } from '../stream/stream.service';
 import {
   artifacts,
   jobOptions,
@@ -16,7 +17,10 @@ const missingIdMessage = 'The queue accepted the job without returning an id';
 export class RenderService {
   private readonly logger = new Logger(RenderService.name);
 
-  constructor(@InjectQueue(renderQueue) private readonly queue: Queue) {}
+  constructor(
+    @InjectQueue(renderQueue) private readonly queue: Queue,
+    private readonly stream: StreamService,
+  ) {}
 
   /* Returns as soon as the job is durable in Redis — a render takes 10–20
      seconds and a full set of startup images considerably longer, both far
@@ -33,6 +37,13 @@ export class RenderService {
     if (!id) throw new Error(missingIdMessage);
 
     this.logger.log(`Queued ${artifact} as ${id}${force ? ' (forced)' : ''}`);
+
+    /* Both paths, deliberately. The Go worker renders to a candidate/ prefix
+       while this one still produces everything the site links to, so the two
+       can be compared over real publishes before anything is cut over. The
+       stream enqueue never throws — a failure there must not take down the
+       path that currently does the work. */
+    await this.stream.enqueue(artifact, force);
 
     return id;
   }

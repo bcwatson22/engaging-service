@@ -1,6 +1,7 @@
 import { getQueueToken } from '@nestjs/bullmq';
 import { Test } from '@nestjs/testing';
 
+import { StreamService } from '../stream/stream.service';
 import {
   artifacts,
   cvPdfJob,
@@ -19,14 +20,19 @@ const setup = async (options: { withoutId?: boolean } = {}) => {
       options.withoutId ? {} : { id: `job-${++queued}` },
     );
 
+  const streamed = vi
+    .fn<() => Promise<string | null>>()
+    .mockResolvedValue('1-0');
+
   const module = await Test.createTestingModule({
     providers: [
       RenderService,
       { provide: getQueueToken(renderQueue), useValue: { add } },
+      { provide: StreamService, useValue: { enqueue: streamed } },
     ],
   }).compile();
 
-  return { service: module.get(RenderService), add };
+  return { service: module.get(RenderService), add, streamed };
 };
 
 describe('enqueue', () => {
@@ -99,5 +105,37 @@ describe('enqueueAll', () => {
       { force: false },
       jobOptions,
     );
+  });
+});
+
+describe('the stream path', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  /* Both paths run until the Go worker's output has been compared against this
+     one over real publishes. */
+  it('queues on the stream as well as on BullMQ', async () => {
+    const { service, add, streamed } = await setup();
+
+    await service.enqueue(cvPdfJob);
+
+    expect(add).toHaveBeenCalledTimes(1);
+    expect(streamed).toHaveBeenNthCalledWith(1, cvPdfJob, false);
+  });
+
+  it('passes force through to the stream', async () => {
+    const { service, streamed } = await setup();
+
+    await service.enqueue(cvPdfJob, true);
+
+    expect(streamed).toHaveBeenNthCalledWith(1, cvPdfJob, true);
+  });
+
+  /* The stream is the path that does not yet do the work, so it must never be
+     the reason the working one fails. */
+  it('still returns the BullMQ id when the stream is unavailable', async () => {
+    const { service, streamed } = await setup();
+    streamed.mockResolvedValue(null);
+
+    await expect(service.enqueue(cvPdfJob)).resolves.toBe('job-1');
   });
 });

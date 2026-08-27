@@ -3,6 +3,7 @@ import { defaultPort, invalidMessage, validate } from './env.schema';
 const required = {
   SITE_URL: 'https://www.engaging.engineering',
   REDIS_URL: 'redis://127.0.0.1:6379',
+  WORKER_URL: 'http://engaging-worker.flycast',
   RENDER_SECRET: 'shared-secret',
   HYGRAPH_WEBHOOK_SECRET: 'hygraph-secret',
   RESEND_API_KEY: 'resend-key',
