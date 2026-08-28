@@ -193,7 +193,10 @@ The ping is deliberately not awaited. A wake can take the worker's full boot tim
 durable before it starts; a failed wake means a late render, not a lost one.
 
 `BackstopService` is the safety net for one that never lands, sweeping every fifteen minutes and
-waking the worker if anything is waiting or held. The interval is a cost decision rather than a
+waking the worker if anything is undelivered or held. It reads the consumer group's `lag`, not
+`XLEN` — a stream keeps its entries after they are acked, so stream length counts finished work
+and never returns to zero. The first version used `XLEN` and woke the worker every fifteen
+minutes forever, which would have cost more than the split saves. The interval is a cost decision rather than a
 habit — two commands a tick is ~1.2% of the monthly Redis allowance, where every minute would be
 ~17.5%. This is a poller, and a poller is what caused #24, so it was costed before it was chosen.
 

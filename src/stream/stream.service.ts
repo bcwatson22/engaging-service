@@ -18,6 +18,18 @@ import { WorkerClient } from './worker.client';
 
 const duplicateMessage = 'already queued moments ago, collapsing';
 
+/* RESP2 returns XINFO as a flat [key, value, key, value] array rather than a
+   map, and ioredis passes that through untouched. */
+const fromFlat = (flat: unknown[]): Record<string, unknown> => {
+  const out: Record<string, unknown> = {};
+
+  for (let i = 0; i < flat.length - 1; i += 2) {
+    out[String(flat[i])] = flat[i + 1];
+  }
+
+  return out;
+};
+
 @Injectable()
 export class StreamService {
   private readonly logger = new Logger(StreamService.name);
@@ -104,26 +116,56 @@ export class StreamService {
     };
   }
 
-  /* What the backstop needs: anything waiting, and anything a consumer took
-     and never acked. */
+  /* What the backstop needs: anything not yet delivered, and anything a
+     consumer took and never acked.
+
+     Deliberately not XLEN. A stream keeps its entries after they are acked —
+     they leave only when trimmed — so XLEN counts finished work and never
+     returns to zero. The backstop read that as "something is waiting" and woke
+     the worker every fifteen minutes forever: ~96 boots a day for nothing,
+     which is most of the saving this whole split is meant to produce.
+
+     The group's `lag` is the honest measure: entries added but not yet handed
+     to a consumer. */
   async depth(): Promise<{ waiting: number; pending: number }> {
-    const waiting = await this.client.xlen(renderStream);
-
-    let pending = 0;
     try {
-      const summary = (await this.client.xpending(
+      const groups = (await this.client.call(
+        'XINFO',
+        'GROUPS',
         renderStream,
-        renderGroup,
-      )) as [number, ...unknown[]] | null;
+      )) as unknown[][];
 
-      pending = summary?.[0] ?? 0;
+      const group = groups
+        .map((flat) => fromFlat(flat))
+        .find((g) => g.name === renderGroup);
+
+      /* No group yet means the worker has never started. Anything already on
+         the stream is genuinely undelivered, so fall back to its length. */
+      if (!group)
+        return { waiting: await this.client.xlen(renderStream), pending: 0 };
+
+      return {
+        waiting: await this.waiting(group),
+        pending: Number(group.pending ?? 0),
+      };
     } catch {
-      /* No group yet means the worker has never started, which is not an
-         error — there is simply nothing pending. */
-      pending = 0;
+      /* No stream at all — nothing has ever been queued. */
+      return { waiting: 0, pending: 0 };
     }
+  }
 
-    return { waiting, pending };
+  /* Redis reports lag as null when it cannot work it out, which happens once
+     entries have been trimmed or deleted from under the group. Comparing the
+     group's last-delivered id against the stream's last id answers the only
+     question the backstop actually asks: is there anything it has not seen? */
+  private async waiting(group: Record<string, unknown>): Promise<number> {
+    if (group.lag !== null && group.lag !== undefined) return Number(group.lag);
+
+    const info = fromFlat(
+      (await this.client.call('XINFO', 'STREAM', renderStream)) as unknown[],
+    );
+
+    return info['last-generated-id'] === group['last-delivered-id'] ? 0 : 1;
   }
 }
 

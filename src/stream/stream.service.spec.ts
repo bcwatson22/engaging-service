@@ -12,13 +12,27 @@ import {
 import { StreamService } from './stream.service';
 import { WorkerClient } from './worker.client';
 
+/* XINFO over RESP2 is a flat key/value array, which is what ioredis hands back
+   untouched. */
+const group = (over: Record<string, unknown> = {}): unknown[] =>
+  Object.entries({
+    name: 'workers',
+    consumers: 1,
+    pending: 2,
+    'last-delivered-id': '5-0',
+    'entries-read': 5,
+    lag: 4,
+    ...over,
+  }).flat();
+
 const setup = async (
   options: {
     claimed?: boolean;
     previous?: string | null;
     xaddRejects?: Error;
-    pending?: unknown;
-    pendingRejects?: Error;
+    groups?: unknown[][];
+    lastGenerated?: string;
+    infoRejects?: Error;
   } = {},
 ) => {
   const set = vi
@@ -35,12 +49,13 @@ const setup = async (
 
   const xlen = vi.fn<() => Promise<number>>().mockResolvedValue(3);
 
-  const xpending = vi
-    .fn<() => Promise<unknown>>()
-    .mockImplementation(async () => {
-      if (options.pendingRejects) throw options.pendingRejects;
+  const call = vi
+    .fn<(...args: unknown[]) => Promise<unknown>>()
+    .mockImplementation(async (_cmd: unknown, sub: unknown) => {
+      if (options.infoRejects) throw options.infoRejects;
+      if (sub === 'GROUPS') return options.groups ?? [group()];
 
-      return 'pending' in options ? options.pending : [2, '1-0', '2-0', []];
+      return ['last-generated-id', options.lastGenerated ?? '9-0'];
     });
 
   const wake = vi.fn<() => Promise<boolean>>().mockResolvedValue(true);
@@ -53,7 +68,7 @@ const setup = async (
   const module = await Test.createTestingModule({
     providers: [
       StreamService,
-      { provide: redisClient, useValue: { set, xadd, xlen, xpending } },
+      { provide: redisClient, useValue: { set, xadd, xlen, call } },
       { provide: HashStore, useValue: { get } },
       { provide: WorkerClient, useValue: { wake } },
     ],
@@ -64,7 +79,7 @@ const setup = async (
     set,
     xadd,
     xlen,
-    xpending,
+    call,
     wake,
     get,
   };
@@ -154,24 +169,73 @@ describe('enqueue', () => {
 describe('depth', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('reports what is waiting and what is held', async () => {
+  it('reports undelivered and held work from the consumer group', async () => {
     const { service } = await setup();
 
-    await expect(service.depth()).resolves.toEqual({ waiting: 3, pending: 2 });
+    await expect(service.depth()).resolves.toEqual({ waiting: 4, pending: 2 });
   });
 
-  /* No group yet means the worker has never started, which is not an error. */
-  it('treats a missing consumer group as nothing pending', async () => {
+  /* The bug this replaced: a stream keeps entries after they are acked, so
+     XLEN never returns to zero and the backstop woke the worker every fifteen
+     minutes forever — roughly 96 boots a day for no work at all. */
+  it('reports nothing waiting once the work has been delivered and acked', async () => {
+    const { service, xlen } = await setup({
+      groups: [group({ lag: 0, pending: 0 })] as unknown[][],
+    });
+    xlen.mockResolvedValue(1); // the finished entry is still in the stream
+
+    await expect(service.depth()).resolves.toEqual({ waiting: 0, pending: 0 });
+  });
+
+  /* No group means the worker has never started, so anything on the stream is
+     genuinely undelivered. */
+  it('falls back to the stream length when there is no group yet', async () => {
+    const { service } = await setup({ groups: [] });
+
+    await expect(service.depth()).resolves.toEqual({ waiting: 3, pending: 0 });
+  });
+
+  /* Defensive: XINFO has always reported it, but a missing count must read as
+     nothing held rather than NaN, which would make the backstop wake forever. */
+  it('treats an absent pending count as nothing held', async () => {
     const { service } = await setup({
-      pendingRejects: new Error('NOGROUP No such consumer group'),
+      groups: [group({ pending: undefined })] as unknown[][],
     });
 
-    await expect(service.depth()).resolves.toEqual({ waiting: 3, pending: 0 });
+    await expect(service.depth()).resolves.toMatchObject({ pending: 0 });
   });
 
-  it('copes with an empty pending summary', async () => {
-    const { service } = await setup({ pending: null });
+  it('treats a missing stream as nothing to do', async () => {
+    const { service } = await setup({
+      infoRejects: new Error('ERR no such key'),
+    });
 
-    await expect(service.depth()).resolves.toEqual({ waiting: 3, pending: 0 });
+    await expect(service.depth()).resolves.toEqual({ waiting: 0, pending: 0 });
+  });
+
+  /* Redis reports lag as null once entries have been trimmed from under the
+     group, so the ids answer the question instead. */
+  describe('when lag cannot be calculated', () => {
+    it('sees work the group has not reached', async () => {
+      const { service } = await setup({
+        groups: [
+          group({ lag: null, 'last-delivered-id': '5-0' }),
+        ] as unknown[][],
+        lastGenerated: '9-0',
+      });
+
+      await expect(service.depth()).resolves.toMatchObject({ waiting: 1 });
+    });
+
+    it('sees nothing when the group has reached the end', async () => {
+      const { service } = await setup({
+        groups: [
+          group({ lag: null, 'last-delivered-id': '9-0' }),
+        ] as unknown[][],
+        lastGenerated: '9-0',
+      });
+
+      await expect(service.depth()).resolves.toMatchObject({ waiting: 0 });
+    });
   });
 });
