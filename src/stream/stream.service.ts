@@ -10,6 +10,7 @@ import {
   payloadField,
   renderGroup,
   renderStream,
+  streamedArtifacts,
   streamMaxLength,
   streamVersion,
   type TStreamJob,
@@ -17,6 +18,7 @@ import {
 import { WorkerClient } from './worker.client';
 
 const duplicateMessage = 'already queued moments ago, collapsing';
+const unsupportedMessage = 'is not ported to the worker yet, not streamed';
 
 /* RESP2 returns XINFO as a flat [key, value, key, value] array rather than a
    map, and ioredis passes that through untouched. */
@@ -47,6 +49,12 @@ export class StreamService {
      real work, and a failure here must not take the working path down with
      it. */
   async enqueue(artifact: TArtifact, force = false): Promise<string | null> {
+    if (!streamedArtifacts.includes(artifact)) {
+      this.logger.log(`${artifact} ${unsupportedMessage}`);
+
+      return null;
+    }
+
     try {
       if (!(await this.claim(artifact))) {
         this.logger.log(`${artifact} ${duplicateMessage}`);
@@ -169,4 +177,4 @@ export class StreamService {
   }
 }
 
-export { duplicateMessage };
+export { duplicateMessage, unsupportedMessage };

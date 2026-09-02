@@ -2,7 +2,7 @@ import { Test } from '@nestjs/testing';
 
 import { redisClient } from '../redis/redis.module';
 import { HashStore } from '../render/hash.store';
-import { cvPdfJob } from '../render/render.constants';
+import { cvPdfJob, startupImagesJob } from '../render/render.constants';
 import {
   payloadField,
   renderStream,
@@ -155,6 +155,20 @@ describe('enqueue', () => {
     await expect(service.enqueue(cvPdfJob)).resolves.toBeNull();
     expect(xadd).not.toHaveBeenCalled();
     expect(wake).not.toHaveBeenCalled();
+  });
+
+  /* A publish enqueues every artifact, but the startup-image fan-out is not
+     ported yet. Streaming it only produced a dead letter and held the worker's
+     machine awake for two and a half minutes of backoff to reach it. */
+  it('does not stream an artifact the worker cannot handle', async () => {
+    const { service, xadd, wake, set } = await setup();
+
+    await expect(service.enqueue(startupImagesJob)).resolves.toBeNull();
+    expect(xadd).not.toHaveBeenCalled();
+    expect(wake).not.toHaveBeenCalled();
+    // Not even claimed: a dedupe key for something never queued would block
+    // the real enqueue once the worker learns it.
+    expect(set).not.toHaveBeenCalled();
   });
 
   /* This path does not yet do the work, so it must never be the reason the

@@ -152,7 +152,9 @@ nothing waits and unusable for a contact form. Once the render moves out, this t
 1 GB to 256 MB and stays warm for about a third of what it costs today.
 
 Both paths run in parallel until the outputs have been compared over real publishes. Every
-enqueue goes to BullMQ _and_ to a Redis Stream; the Go worker renders to a `candidate/` key
+enqueue goes to BullMQ, and to a Redis Stream if the worker implements that artifact —
+`startup-images` remains Nest's alone until the fan-out is ported, since streaming it would only
+produce a dead letter and wake a machine to reach it. The Go worker renders to a `candidate/` key
 prefix, so nothing the site links to has moved. A failure on the stream path is logged and
 swallowed — it must never take down the path currently doing the work.
 
