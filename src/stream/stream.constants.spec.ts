@@ -1,5 +1,4 @@
 import {
-  streamedArtifacts,
   dedupeSeconds,
   deadLetterStream,
   payloadField,
@@ -29,12 +28,6 @@ describe('the queue contract', () => {
      this is its replacement. */
   it('caps the stream', () => {
     expect(streamMaxLength).toBeGreaterThan(0);
-  });
-
-  /* Widened when the worker learns an artifact, and not before: streaming one
-     it cannot handle costs a dead letter and a woken machine per publish. */
-  it('streams only what the worker implements', () => {
-    expect(streamedArtifacts).toEqual(['cv-pdf']);
   });
 
   /* Long enough to collapse a webhook retry, short enough not to swallow a
