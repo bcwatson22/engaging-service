@@ -31,6 +31,15 @@ const streamMaxLength = 1000;
 const dedupePrefix = 'stream-dedupe';
 const dedupeSeconds = 60;
 
+/* What the Go worker actually implements today. A publish enqueues every
+   artifact, because it changes the content all of them are derived from — but
+   the startup-image fan-out has not been ported yet, and streaming it only
+   produces a dead letter and holds the worker's machine awake to reach it.
+
+   Widened to include 'startup-images' when the worker learns it, which is the
+   one change that phase needs on this side. */
+const streamedArtifacts: readonly string[] = ['cv-pdf'];
+
 type TStreamJob = {
   v: number;
   job: string;
@@ -40,6 +49,7 @@ type TStreamJob = {
 };
 
 export {
+  streamedArtifacts,
   streamVersion,
   renderStream,
   renderGroup,
