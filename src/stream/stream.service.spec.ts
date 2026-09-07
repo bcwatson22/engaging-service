@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 
 import { redisClient } from '../redis/redis.module';
@@ -33,6 +34,7 @@ const setup = async (
     groups?: unknown[][];
     lastGenerated?: string;
     infoRejects?: Error;
+    owned?: string[];
   } = {},
 ) => {
   const set = vi
@@ -71,6 +73,10 @@ const setup = async (
       { provide: redisClient, useValue: { set, xadd, xlen, call } },
       { provide: HashStore, useValue: { get } },
       { provide: WorkerClient, useValue: { wake } },
+      {
+        provide: ConfigService,
+        useValue: { get: () => options.owned ?? ['cv-pdf'] },
+      },
     ],
   }).compile();
 

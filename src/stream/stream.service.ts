@@ -1,6 +1,8 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type IORedis from 'ioredis';
 
+import type { TEnv } from '../config/env.schema';
 import { redisClient } from '../redis/redis.module';
 import { HashStore } from '../render/hash.store';
 import type { TArtifact } from '../render/render.constants';
@@ -10,7 +12,6 @@ import {
   payloadField,
   renderGroup,
   renderStream,
-  streamedArtifacts,
   streamMaxLength,
   streamVersion,
   type TStreamJob,
@@ -36,11 +37,16 @@ const fromFlat = (flat: unknown[]): Record<string, unknown> => {
 export class StreamService {
   private readonly logger = new Logger(StreamService.name);
 
+  private readonly owned: readonly string[];
+
   constructor(
     @Inject(redisClient) private readonly client: IORedis,
     private readonly hashes: HashStore,
     private readonly worker: WorkerClient,
-  ) {}
+    config: ConfigService<TEnv, true>,
+  ) {
+    this.owned = config.get('WORKER_ARTIFACTS', { infer: true });
+  }
 
   /* Puts a job on the stream and wakes the worker.
 
@@ -49,7 +55,7 @@ export class StreamService {
      real work, and a failure here must not take the working path down with
      it. */
   async enqueue(artifact: TArtifact, force = false): Promise<string | null> {
-    if (!streamedArtifacts.includes(artifact)) {
+    if (!this.owned.includes(artifact)) {
       this.logger.log(`${artifact} ${unsupportedMessage}`);
 
       return null;

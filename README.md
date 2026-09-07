@@ -151,11 +151,16 @@ This image was measured at **21.3 seconds to cold-boot against 46ms warm**, whic
 nothing waits and unusable for a contact form. Once the render moves out, this tier drops from
 1 GB to 256 MB and stays warm for about a third of what it costs today.
 
-Both paths run in parallel until the outputs have been compared over real publishes. Every
-enqueue goes to BullMQ, and to a Redis Stream if the worker implements that artifact —
-`startup-images` remains Nest's alone until the fan-out is ported, since streaming it would only
-produce a dead letter and wake a machine to reach it. The Go worker renders to a `candidate/` key
-prefix, so nothing the site links to has moved. A failure on the stream path is logged and
+**The CV PDF is now the worker's.** It rendered to a `candidate/` prefix alongside this service
+first, and four publishes — two forced, two real — produced pixel-identical output at 150dpi
+before the prefix was emptied. The startup images are still rendered here, until that fan-out is
+ported too.
+
+`WORKER_ARTIFACTS` decides which is which: an artifact listed there goes to the stream, everything
+else stays on BullMQ. The render code for both is still here and still tested, so handing one back
+is a one-line change to that value rather than a code revert made under pressure. It does
+redeploy, which takes a few minutes — that is the trade for the switch being visible in a diff
+instead of hidden in a secret. A failure on the stream path is logged and
 swallowed — it must never take down the path currently doing the work.
 
 ### The queue between them

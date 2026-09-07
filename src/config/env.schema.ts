@@ -19,6 +19,23 @@ const envSchema = z.object({
      proxy-routed traffic starts a stopped machine. */
   WORKER_URL: z.url(),
 
+  /* Which artifacts the Go worker owns. Those go to the stream; everything
+     else stays on BullMQ here.
+
+     This is the cutover switch. Taking an artifact out of this list hands it
+     back to this service, whose render code is still present and still tested
+     — a one-line config change rather than reverting a deploy's worth of code
+     while something is broken. */
+  WORKER_ARTIFACTS: z
+    .string()
+    .default('cv-pdf')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((artifact) => artifact.trim())
+        .filter(Boolean),
+    ),
+
   /* Shared secret for the manual render trigger. The Hygraph webhook has its
      own signature verification; this guards the endpoint used to re-render
      by hand. */

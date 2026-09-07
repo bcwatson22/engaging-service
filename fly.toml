@@ -12,6 +12,15 @@ primary_region = "lhr"
 # wake the worker and look like the queue silently not working.
 WORKER_URL = "http://engaging-worker.flycast"
 
+# The cutover switch. Artifacts listed here belong to the Go worker and go to
+# the stream; everything else is rendered by this service on BullMQ.
+#
+# This service's render code is still here and still tested, so handing an
+# artifact back is a one-line change to this value — not a code revert made
+# under pressure. It does redeploy, which takes a few minutes; that is the
+# trade for the value being visible in a diff rather than hidden in a secret.
+WORKER_ARTIFACTS = "cv-pdf"
+
 [http_service]
 internal_port = 3000
 force_https = true
