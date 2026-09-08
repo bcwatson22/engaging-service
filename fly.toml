@@ -19,7 +19,7 @@ WORKER_URL = "http://engaging-worker.flycast"
 # artifact back is a one-line change to this value — not a code revert made
 # under pressure. It does redeploy, which takes a few minutes; that is the
 # trade for the value being visible in a diff rather than hidden in a secret.
-WORKER_ARTIFACTS = "cv-pdf"
+WORKER_ARTIFACTS = "cv-pdf,startup-images"
 
 [http_service]
 internal_port = 3000
