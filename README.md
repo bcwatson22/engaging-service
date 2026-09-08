@@ -151,10 +151,11 @@ This image was measured at **21.3 seconds to cold-boot against 46ms warm**, whic
 nothing waits and unusable for a contact form. Once the render moves out, this tier drops from
 1 GB to 256 MB and stays warm for about a third of what it costs today.
 
-**The CV PDF is now the worker's.** It rendered to a `candidate/` prefix alongside this service
+**Rendering has moved.** It rendered to a `candidate/` prefix alongside this service
 first, and four publishes — two forced, two real — produced pixel-identical output at 150dpi
-before the prefix was emptied. The startup images are still rendered here, until that fan-out is
-ported too.
+before the prefix was emptied. The splash screens followed once the fan-out was ported, verified
+differently — those pages animate, so no two captures match and the check was that the Go
+implementation varies no more than the Node one did against itself.
 
 `WORKER_ARTIFACTS` decides which is which: an artifact listed there goes to the stream, everything
 else stays on BullMQ. The render code for both is still here and still tested, so handing one back

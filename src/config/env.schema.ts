@@ -28,7 +28,7 @@ const envSchema = z.object({
      while something is broken. */
   WORKER_ARTIFACTS: z
     .string()
-    .default('cv-pdf')
+    .default('cv-pdf,startup-images')
     .transform((value) =>
       value
         .split(',')
