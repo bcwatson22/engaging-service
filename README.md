@@ -3,7 +3,7 @@
 [![CI](https://github.com/bcwatson22/engaging-service/actions/workflows/ci.yml/badge.svg)](https://github.com/bcwatson22/engaging-service/actions/workflows/ci.yml)
 ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-2EBB4F?labelColor=343B42)
 
-Render service for [engaging.engineering](https://www.engaging.engineering) — a [NestJS](https://nestjs.com/) app that generates the site's browser-rendered artifacts on a queue, instead of inside the site's build. The site itself lives in [engaging](https://github.com/bcwatson22/engaging).
+Request-time tier for [engaging.engineering](https://www.engaging.engineering) — a [NestJS](https://nestjs.com/) app that owns the things a person waits on: a contact endpoint, a status page, and two weekly checks that catch the site drifting from what it publishes. It used to render the site's PDF and splash screens too; that half now lives in [engaging-worker](https://github.com/bcwatson22/engaging-worker), and this container no longer carries a browser. The site itself lives in [engaging](https://github.com/bcwatson22/engaging).
 
 ## Stack
 
@@ -33,20 +33,7 @@ Render service for [engaging.engineering](https://www.engaging.engineering) — 
   </tr>
 </table>
 
-### Puppeteer
-
-<table>
-  <tr>
-    <td width="58">
-      <img src="https://cdn.simpleicons.org/puppeteer/40B5A4/40B5A4" alt="Puppeteer icon" width="32" />
-    </td>
-    <td>
-      Drives headless Chrome over the live site to produce the CV PDF and the 22 PWA splash screens. A render takes 10-20 seconds, which is why it lives here and not in a serverless function.
-    </td>
-  </tr>
-</table>
-
-### BullMQ & Redis
+### Redis
 
 <table>
   <tr>
@@ -54,20 +41,7 @@ Render service for [engaging.engineering](https://www.engaging.engineering) — 
       <img src="https://cdn.simpleicons.org/redis/FF4438/FF4438" alt="Redis icon" width="32" />
     </td>
     <td>
-      The webhook returns as soon as the job is queued, so the CMS never waits on a render. Redis also backs the contact form’s rate limiting.
-    </td>
-  </tr>
-</table>
-
-### Cloudflare R2
-
-<table>
-  <tr>
-    <td width="58">
-      <img src="https://cdn.simpleicons.org/cloudflare/F38020/F38020" alt="Cloudflare icon" width="32" />
-    </td>
-    <td>
-      Rendered artifacts are uploaded here over the S3 API and served through the site’s own domain, so visitors never see a bucket URL and Vercel’s CDN absorbs the traffic.
+      A stream carries render jobs to <a href="https://github.com/bcwatson22/engaging-worker">engaging-worker</a>, so the webhook returns as soon as the job is durable and the CMS never waits. Redis also backs the contact form’s rate limiting, the content hashes the integrity check compares, and the render history the status page reports.
     </td>
   </tr>
 </table>
@@ -93,7 +67,7 @@ Render service for [engaging.engineering](https://www.engaging.engineering) — 
       <img src="https://cdn.simpleicons.org/flydotio/24175B/8478CC" alt="Fly.io icon" width="32" />
     </td>
     <td>
-      A long-lived container, which a ~150 MB browser binary needs. One machine stays resident so the contact form never meets a cold boot - see <a href="#why-the-machine-no-longer-sleeps">below</a> for the measurements behind that.
+      One machine stays resident so the contact form never meets a cold boot - see <a href="#why-the-machine-no-longer-sleeps">below</a> for the measurements behind that. It used to need 1 GB for headless Chrome; without a browser it runs at 256 MB, which is roughly $2/month against $6.
     </td>
   </tr>
 </table>
@@ -132,11 +106,11 @@ The portfolio's CV page has a downloadable PDF, and its PWA manifest needs a set
 - a slow download or a render timeout failed the deploy;
 - the artifacts could only change when the site was deployed, even though the pages themselves refresh within seconds of a CMS publish.
 
-A 10–20 second headless render does not fit a serverless function's execution limits, and a ~150 MB browser binary is not something to cold-start per invocation. So it lives here, in a long-lived container, triggered by the same CMS webhook that revalidates the site.
+A headless render does not fit a serverless function's execution limits, and a ~150 MB browser binary is not something to cold-start per invocation. So it needed a long-lived container — this one, until the render half grew enough of its own requirements to deserve its own.
 
 ## How it works
 
-A Hygraph publish fires two independent webhooks — one to the site to revalidate its pages, one to this service. This service verifies the signature, puts a job on a Redis-backed queue and returns immediately. A worker then renders the artifact with headless Chrome and uploads it to object storage, where the site links to it at a stable URL.
+A Hygraph publish fires two independent webhooks — one to the site to revalidate its pages, one to this service. This service verifies the signature, puts a job on a Redis stream and returns immediately. [engaging-worker](https://github.com/bcwatson22/engaging-worker) then wakes, renders the artifact with headless Chrome and uploads it to object storage, where the site links to it at a stable URL.
 
 The two webhooks are deliberately independent rather than chained: this service is never in the content-publish path, so if it is down the site still refreshes normally. Only the artifacts go stale.
 
@@ -157,12 +131,15 @@ before the prefix was emptied. The splash screens followed once the fan-out was 
 differently — those pages animate, so no two captures match and the check was that the Go
 implementation varies no more than the Node one did against itself.
 
-`WORKER_ARTIFACTS` decides which is which: an artifact listed there goes to the stream, everything
-else stays on BullMQ. The render code for both is still here and still tested, so handing one back
-is a one-line change to that value rather than a code revert made under pressure. It does
-redeploy, which takes a few minutes — that is the trade for the switch being visible in a diff
-instead of hidden in a secret. A failure on the stream path is logged and
-swallowed — it must never take down the path currently doing the work.
+Both artifacts are now the worker's, and the render code that produced them here has been
+deleted along with BullMQ, Puppeteer and the object storage they used. A `WORKER_ARTIFACTS`
+switch existed through the cutover so an artifact could be handed back in one line; it went with
+the code it would have handed back to, because a switch between two implementations is only worth
+having while there are two.
+
+What remains on this side is asking for a render and reading what came of it. A failure putting a
+job on the stream is logged rather than thrown — the webhook has already been answered, and
+nothing is served to a visitor from here.
 
 ### The queue between them
 
@@ -210,7 +187,9 @@ habit — two commands a tick is ~1.2% of the monthly Redis allowance, where eve
 
 ## Status
 
-Under construction. See the branch table in the plan for what has landed.
+The render half has moved out. What is here is the request-time tier: the contact endpoint, the
+status page, the weekly integrity check and the dead-link sweep. No browser, no queue worker, no
+object storage — 256 MB rather than 1 GB.
 
 ## Development
 
@@ -256,7 +235,7 @@ Trigger a render by hand:
 curl -X POST localhost:3000/render/cv-pdf -H "x-render-secret: $RENDER_SECRET"
 ```
 
-Both return `202` with a job id - the render takes 10-20 seconds, far longer
+Both return `202` with a stream message id - the render takes tens of seconds, far longer
 than a webhook sender will wait. The worker logs the render and the resulting
 public URL.
 

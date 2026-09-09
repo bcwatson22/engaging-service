@@ -1,13 +1,9 @@
-const renderQueue = 'render';
-
 const cvPdfJob = 'cv-pdf';
 const startupImagesJob = 'startup-images';
 
 const artifacts = [cvPdfJob, startupImagesJob] as const;
 
 type TArtifact = (typeof artifacts)[number];
-
-type TRenderJob = { force: boolean };
 
 const isArtifact = (value: string): value is TArtifact =>
   (artifacts as readonly string[]).includes(value);
@@ -62,17 +58,6 @@ const drainDelay = 300;
    replaced mid-render, which is the durability the queue exists to provide. */
 const stalledInterval = 300_000;
 
-const jobOptions = {
-  attempts: 5,
-  backoff: { type: 'exponential', delay: 10_000 },
-  removeOnComplete: 20,
-  removeOnFail: 50,
-} as const;
-
-/* Sum of an exponential ladder: delay * (2^(attempts-1) - 1). */
-const totalBackoff = (): number =>
-  jobOptions.backoff.delay * (2 ** (jobOptions.attempts - 1) - 1);
-
 /* Which pages an artifact is derived from, and the key its content hash is
    recorded under. The processor reaches for these constants directly when it
    renders; this states the association once so the integrity check cannot
@@ -83,7 +68,6 @@ const sourcesFor = (artifact: TArtifact): { paths: string[]; key: string } =>
     : { paths: [...startupImages.paths], key: startupImages.key };
 
 export {
-  renderQueue,
   drainDelay,
   stalledInterval,
   sourcesFor,
@@ -93,7 +77,5 @@ export {
   isArtifact,
   cvPdf,
   startupImages,
-  jobOptions,
-  totalBackoff,
 };
-export type { TRenderJob, TArtifact };
+export type { TArtifact };
