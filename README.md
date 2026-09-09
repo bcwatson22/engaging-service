@@ -67,7 +67,7 @@ Request-time tier for [engaging.engineering](https://www.engaging.engineering) �
       <img src="https://cdn.simpleicons.org/flydotio/24175B/8478CC" alt="Fly.io icon" width="32" />
     </td>
     <td>
-      One machine stays resident so the contact form never meets a cold boot - see <a href="#why-the-machine-no-longer-sleeps">below</a> for the measurements behind that. It used to need 1 GB for headless Chrome; without a browser it runs at 256 MB, which is roughly $2/month against $6.
+      One machine stays resident so the contact form never meets a cold boot - see <a href="#why-the-machine-no-longer-sleeps">below</a> for the measurements behind that. It used to need 1 GB for headless Chrome; without a browser it runs at 256 MB, which is roughly £1.43/month against £4.37.
     </td>
   </tr>
 </table>
@@ -197,7 +197,7 @@ Measured on Fly rather than estimated, before and after
 | `node_modules`          | 105 MB    | 45 MB      |
 | Production dependencies | 15        | 11         |
 | VM                      | 1 GB      | **256 MB** |
-| Cost, always resident   | ~$5.92/mo | ~$1.94/mo  |
+| Cost, always resident   | ~£4.37/mo | ~£1.43/mo  |
 | Covered lines           | 493       | 346        |
 
 Fly bills in dollars; those are converted at 0.738, the rate on 9 September 2026, and will drift
