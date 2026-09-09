@@ -1,9 +1,8 @@
-import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 
 import { redisClient } from '../redis/redis.module';
 import { HashStore } from '../render/hash.store';
-import { cvPdfJob, startupImagesJob } from '../render/render.constants';
+import { cvPdfJob } from '../render/render.constants';
 import {
   payloadField,
   renderStream,
@@ -34,7 +33,6 @@ const setup = async (
     groups?: unknown[][];
     lastGenerated?: string;
     infoRejects?: Error;
-    owned?: string[];
   } = {},
 ) => {
   const set = vi
@@ -49,7 +47,11 @@ const setup = async (
       return '1787-0';
     });
 
-  const xlen = vi.fn<() => Promise<number>>().mockResolvedValue(3);
+  /* Answers for both keys: the stream itself, and the dead-letter stream the
+     status page reports as `dead`. */
+  const xlen = vi
+    .fn<(key: string) => Promise<number>>()
+    .mockImplementation(async (key) => (key === 'render:dead' ? 1 : 3));
 
   const call = vi
     .fn<(...args: unknown[]) => Promise<unknown>>()
@@ -73,10 +75,6 @@ const setup = async (
       { provide: redisClient, useValue: { set, xadd, xlen, call } },
       { provide: HashStore, useValue: { get } },
       { provide: WorkerClient, useValue: { wake } },
-      {
-        provide: ConfigService,
-        useValue: { get: () => options.owned ?? ['cv-pdf'] },
-      },
     ],
   }).compile();
 
@@ -163,22 +161,8 @@ describe('enqueue', () => {
     expect(wake).not.toHaveBeenCalled();
   });
 
-  /* A publish enqueues every artifact, but the startup-image fan-out is not
-     ported yet. Streaming it only produced a dead letter and held the worker's
-     machine awake for two and a half minutes of backoff to reach it. */
-  it('does not stream an artifact the worker cannot handle', async () => {
-    const { service, xadd, wake, set } = await setup();
-
-    await expect(service.enqueue(startupImagesJob)).resolves.toBeNull();
-    expect(xadd).not.toHaveBeenCalled();
-    expect(wake).not.toHaveBeenCalled();
-    // Not even claimed: a dedupe key for something never queued would block
-    // the real enqueue once the worker learns it.
-    expect(set).not.toHaveBeenCalled();
-  });
-
-  /* This path does not yet do the work, so it must never be the reason the
-     path that does fails. */
+  /* Nothing else renders these now, so a failure here is the render not
+     happening — logged and reported, never thrown at the webhook. */
   it('reports a failure as null rather than throwing', async () => {
     const { service } = await setup({ xaddRejects: new Error('READONLY') });
 
@@ -192,7 +176,11 @@ describe('depth', () => {
   it('reports undelivered and held work from the consumer group', async () => {
     const { service } = await setup();
 
-    await expect(service.depth()).resolves.toEqual({ waiting: 4, pending: 2 });
+    await expect(service.depth()).resolves.toEqual({
+      waiting: 4,
+      pending: 2,
+      dead: 1,
+    });
   });
 
   /* The bug this replaced: a stream keeps entries after they are acked, so
@@ -204,7 +192,11 @@ describe('depth', () => {
     });
     xlen.mockResolvedValue(1); // the finished entry is still in the stream
 
-    await expect(service.depth()).resolves.toEqual({ waiting: 0, pending: 0 });
+    await expect(service.depth()).resolves.toEqual({
+      waiting: 0,
+      pending: 0,
+      dead: 1,
+    });
   });
 
   /* No group means the worker has never started, so anything on the stream is
@@ -212,7 +204,11 @@ describe('depth', () => {
   it('falls back to the stream length when there is no group yet', async () => {
     const { service } = await setup({ groups: [] });
 
-    await expect(service.depth()).resolves.toEqual({ waiting: 3, pending: 0 });
+    await expect(service.depth()).resolves.toEqual({
+      waiting: 3,
+      pending: 0,
+      dead: 1,
+    });
   });
 
   /* Defensive: XINFO has always reported it, but a missing count must read as
@@ -230,7 +226,11 @@ describe('depth', () => {
       infoRejects: new Error('ERR no such key'),
     });
 
-    await expect(service.depth()).resolves.toEqual({ waiting: 0, pending: 0 });
+    await expect(service.depth()).resolves.toEqual({
+      waiting: 0,
+      pending: 0,
+      dead: 0,
+    });
   });
 
   /* Redis reports lag as null once entries have been trimmed from under the

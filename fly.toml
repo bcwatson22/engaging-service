@@ -12,14 +12,6 @@ primary_region = "lhr"
 # wake the worker and look like the queue silently not working.
 WORKER_URL = "http://engaging-worker.flycast"
 
-# The cutover switch. Artifacts listed here belong to the Go worker and go to
-# the stream; everything else is rendered by this service on BullMQ.
-#
-# This service's render code is still here and still tested, so handing an
-# artifact back is a one-line change to this value — not a code revert made
-# under pressure. It does redeploy, which takes a few minutes; that is the
-# trade for the value being visible in a diff rather than hidden in a secret.
-WORKER_ARTIFACTS = "cv-pdf,startup-images"
 
 [http_service]
 internal_port = 3000
@@ -30,9 +22,10 @@ force_https = true
 # Contact submissions arrive a few times a month — always well after the
 # machine would have slept — so every single one would have paid the full boot.
 #
-# Hence one machine always resident. It costs a few dollars a month, and drops
-# further when the render half moves out and this tier no longer ships a
-# browser. It also retires two bugs rather than working around them: the dead
+# Hence one machine always resident. That cost has now fallen: with rendering
+# moved to engaging-worker this image carries no browser, so the same always-on
+# tier runs at 256 MB rather than 1 GB — roughly $2/month against $6.
+# It also retires two bugs rather than working around them: the dead
 # Upstash sockets handled in `fix/redis-resilience` and the truncated retry
 # window in `fix/retry-within-idle-window` were both consequences of sleeping.
 #
@@ -47,20 +40,19 @@ min_machines_running = 1
 [[http_service.checks]]
 interval = "30s"
 timeout = "5s"
-# 30s, not the 10s this used to be. A deploy replaces the machine, and this
-# image carries Chrome — measured at 21.3 seconds from cold to serving. A
-# grace period shorter than the boot guaranteed a failed check on every
-# deploy, which logged as "your app is not responding properly" and read like
-# a fault rather than a machine still starting.
-#
-# Raise this if the image ever gets slower to boot; the number is the boot
-# time, not a guess.
+# 30s. This was set when the image carried Chrome and took 21.3 seconds to
+# boot; without it the boot is far quicker, and this could safely come down.
+# Left alone deliberately — it costs nothing but a slower first health check
+# after a deploy, and the number should be lowered against a measurement
+# rather than a guess about how much faster the image now is.
 grace_period = "30s"
 method = "GET"
 path = "/health"
 
 [[vm]]
-# Headless Chrome is memory-hungry; 1GB is the floor for reliable rendering.
-memory = "1gb"
+# 256 MB, down from the 1 GB headless Chrome needed. Nothing here renders any
+# more: this tier answers a contact form, serves a status page and runs two
+# weekly crons. This is where the split's saving actually lands.
+memory = "256mb"
 cpu_kind = "shared"
 cpus = 1

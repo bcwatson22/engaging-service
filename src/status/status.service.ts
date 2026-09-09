@@ -1,25 +1,20 @@
-import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
-import type { Queue } from 'bullmq';
 
 import { CheckStore, type TCheck } from '../integrity/check.store';
 import { SweepStore, type TSweep } from '../links/sweep.store';
 import { RecordStore, type TRecord } from '../render/record.store';
-import {
-  artifacts,
-  renderQueue,
-  type TArtifact,
-} from '../render/render.constants';
+import { artifacts, type TArtifact } from '../render/render.constants';
+import { StreamService, type TDepth } from '../stream/stream.service';
 
-/* Only the counts worth reading on a status page. BullMQ reports several more
-   — paused, prioritised, waiting-children — none of which this queue can
-   reach, and every one of them would be a number nobody could interpret. */
-type TQueue = {
-  waiting: number;
-  active: number;
-  delayed: number;
-  failed: number;
-};
+/* The three counts a stream can answer, and the only ones worth reading here.
+   `waiting` is work the worker has not been handed yet, `pending` is work it
+   holds and has not acked, and `dead` is what it gave up on — the one number
+   that means something is wrong rather than merely busy.
+
+   BullMQ's active/delayed/paused have no equivalent and are not missed: a
+   consumer group has no notion of a delayed job, because the worker's retry
+   ladder runs in its own process rather than in Redis. */
+type TQueue = TDepth;
 
 /* History rather than a latest-plus-history pair. The newest entry is the
    head of the list, so a caller that only wants "when was this last
@@ -42,7 +37,7 @@ export class StatusService {
     private readonly records: RecordStore,
     private readonly checks: CheckStore,
     private readonly sweeps: SweepStore,
-    @InjectQueue(renderQueue) private readonly queue: Queue,
+    private readonly stream: StreamService,
   ) {}
 
   /* Everything at once, in parallel — the page shows it together and one
@@ -54,7 +49,7 @@ export class StatusService {
       ),
       Promise.all(artifacts.map(async (name) => await this.checks.get(name))),
       this.sweeps.get(),
-      this.queue.getJobCounts('waiting', 'active', 'delayed', 'failed'),
+      this.stream.depth(),
     ]);
 
     return {
@@ -65,12 +60,7 @@ export class StatusService {
         artifacts.map((name, index) => [name, checks[index]]),
       ) as Record<TArtifact, TCheck | null>,
       links,
-      queue: {
-        waiting: counts.waiting ?? 0,
-        active: counts.active ?? 0,
-        delayed: counts.delayed ?? 0,
-        failed: counts.failed ?? 0,
-      },
+      queue: counts,
     };
   }
 }

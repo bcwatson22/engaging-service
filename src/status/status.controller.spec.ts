@@ -19,7 +19,7 @@ const status: TStatus = {
   },
   integrity: { [cvPdfJob]: null, [startupImagesJob]: null },
   links: null,
-  queue: { waiting: 0, active: 0, delayed: 0, failed: 0 },
+  queue: { waiting: 0, pending: 0, dead: 0 },
 };
 
 const setup = async () => {

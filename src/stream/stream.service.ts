@@ -1,12 +1,11 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import type IORedis from 'ioredis';
 
-import type { TEnv } from '../config/env.schema';
 import { redisClient } from '../redis/redis.module';
 import { HashStore } from '../render/hash.store';
 import type { TArtifact } from '../render/render.constants';
 import {
+  deadLetterStream,
   dedupePrefix,
   dedupeSeconds,
   payloadField,
@@ -18,8 +17,11 @@ import {
 } from './stream.constants';
 import { WorkerClient } from './worker.client';
 
+/* What the status page reports about the queue: work not yet delivered, work
+   a consumer holds and has not acked, and work given up on. */
+type TDepth = { waiting: number; pending: number; dead: number };
+
 const duplicateMessage = 'already queued moments ago, collapsing';
-const unsupportedMessage = 'is not ported to the worker yet, not streamed';
 
 /* RESP2 returns XINFO as a flat [key, value, key, value] array rather than a
    map, and ioredis passes that through untouched. */
@@ -37,16 +39,11 @@ const fromFlat = (flat: unknown[]): Record<string, unknown> => {
 export class StreamService {
   private readonly logger = new Logger(StreamService.name);
 
-  private readonly owned: readonly string[];
-
   constructor(
     @Inject(redisClient) private readonly client: IORedis,
     private readonly hashes: HashStore,
     private readonly worker: WorkerClient,
-    config: ConfigService<TEnv, true>,
-  ) {
-    this.owned = config.get('WORKER_ARTIFACTS', { infer: true });
-  }
+  ) {}
 
   /* Puts a job on the stream and wakes the worker.
 
@@ -55,12 +52,6 @@ export class StreamService {
      real work, and a failure here must not take the working path down with
      it. */
   async enqueue(artifact: TArtifact, force = false): Promise<string | null> {
-    if (!this.owned.includes(artifact)) {
-      this.logger.log(`${artifact} ${unsupportedMessage}`);
-
-      return null;
-    }
-
     try {
       if (!(await this.claim(artifact))) {
         this.logger.log(`${artifact} ${duplicateMessage}`);
@@ -141,7 +132,7 @@ export class StreamService {
 
      The group's `lag` is the honest measure: entries added but not yet handed
      to a consumer. */
-  async depth(): Promise<{ waiting: number; pending: number }> {
+  async depth(): Promise<TDepth> {
     try {
       const groups = (await this.client.call(
         'XINFO',
@@ -155,17 +146,30 @@ export class StreamService {
 
       /* No group yet means the worker has never started. Anything already on
          the stream is genuinely undelivered, so fall back to its length. */
-      if (!group)
-        return { waiting: await this.client.xlen(renderStream), pending: 0 };
+      if (!group) {
+        return {
+          waiting: await this.client.xlen(renderStream),
+          pending: 0,
+          dead: await this.dead(),
+        };
+      }
 
       return {
         waiting: await this.waiting(group),
         pending: Number(group.pending ?? 0),
+        dead: await this.dead(),
       };
     } catch {
       /* No stream at all — nothing has ever been queued. */
-      return { waiting: 0, pending: 0 };
+      return { waiting: 0, pending: 0, dead: 0 };
     }
+  }
+
+  /* Jobs the worker gave up on. This is what `failed` used to mean when the
+     queue was BullMQ's — the one count on the status page that says something
+     is wrong rather than merely busy. */
+  private async dead(): Promise<number> {
+    return await this.client.xlen(deadLetterStream);
   }
 
   /* Redis reports lag as null when it cannot work it out, which happens once
@@ -183,4 +187,5 @@ export class StreamService {
   }
 }
 
-export { duplicateMessage, unsupportedMessage };
+export { duplicateMessage };
+export type { TDepth };
