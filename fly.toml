@@ -24,7 +24,7 @@ force_https = true
 #
 # Hence one machine always resident. That cost has now fallen: with rendering
 # moved to engaging-worker this image carries no browser, so the same always-on
-# tier runs at 256 MB rather than 1 GB — roughly $2/month against $6.
+# tier runs at 256 MB rather than 1 GB — roughly £1.43/month against £4.37.
 # It also retires two bugs rather than working around them: the dead
 # Upstash sockets handled in `fix/redis-resilience` and the truncated retry
 # window in `fix/retry-within-idle-window` were both consequences of sleeping.
