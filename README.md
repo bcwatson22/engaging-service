@@ -200,6 +200,9 @@ Measured on Fly rather than estimated, before and after
 | Cost, always resident   | ~$5.92/mo | ~$1.94/mo  |
 | Covered lines           | 493       | 346        |
 
+Fly bills in dollars; those are converted at 0.738, the rate on 9 September 2026, and will drift
+with it.
+
 Boot is the number that changed shape rather than size. Carrying Chrome, this image took **21.3
 seconds from stopped to serving**, which is what made a contact form on a sleeping machine
 untenable and why one stays resident. Without a browser it reaches "Nest application successfully
