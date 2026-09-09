@@ -185,11 +185,34 @@ minutes forever, which would have cost more than the split saves. The interval i
 habit — two commands a tick is ~1.2% of the monthly Redis allowance, where every minute would be
 ~17.5%. This is a poller, and a poller is what caused #24, so it was costed before it was chosen.
 
+## What moving the render out cost this service
+
+Measured on Fly rather than estimated, before and after
+[engaging-worker](https://github.com/bcwatson22/engaging-worker) took the rendering:
+
+|                         | before    | after      |
+| ----------------------- | --------- | ---------- |
+| Container filesystem    | 1.2 GB    | **419 MB** |
+| Chromium and its fonts  | 351 MB    | none       |
+| `node_modules`          | 105 MB    | 45 MB      |
+| Production dependencies | 15        | 11         |
+| VM                      | 1 GB      | **256 MB** |
+| Cost, always resident   | ~$5.92/mo | ~$1.94/mo  |
+| Covered lines           | 493       | 346        |
+
+Boot is the number that changed shape rather than size. Carrying Chrome, this image took **21.3
+seconds from stopped to serving**, which is what made a contact form on a sleeping machine
+untenable and why one stays resident. Without a browser it reaches "Nest application successfully
+started" **seven seconds** after init — and in normal operation it never cold-boots at all, since
+the resident machine only restarts on a deploy.
+
+The honest framing is that this tier did not get faster. It got _smaller_, and the thing that was
+slow left. A render still takes tens of seconds; it happens somewhere nobody is waiting.
+
 ## Status
 
-The render half has moved out. What is here is the request-time tier: the contact endpoint, the
-status page, the weekly integrity check and the dead-link sweep. No browser, no queue worker, no
-object storage — 256 MB rather than 1 GB.
+What is here is the request-time tier: the contact endpoint, the status page, the weekly
+integrity check and the dead-link sweep. No browser, no queue worker, no object storage.
 
 ## Development
 
