@@ -37,14 +37,6 @@ const envSchema = z.object({
      send. */
   CONTACT_FROM: z.email(),
   CONTACT_TO: z.email(),
-
-  R2_ACCOUNT_ID: z.string().min(1),
-  R2_ACCESS_KEY_ID: z.string().min(1),
-  R2_SECRET_ACCESS_KEY: z.string().min(1),
-  R2_BUCKET: z.string().min(1),
-  /* Where uploaded objects are publicly readable. The site rewrites its own
-     paths to this, so visitors never see it. */
-  R2_PUBLIC_BASE: z.url(),
 });
 
 type TEnv = z.infer<typeof envSchema>;

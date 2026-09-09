@@ -9,11 +9,6 @@ const required = {
   RESEND_API_KEY: 'resend-key',
   CONTACT_FROM: 'contact@engaging.engineering',
   CONTACT_TO: 'hello@engaging.engineering',
-  R2_ACCOUNT_ID: 'account',
-  R2_ACCESS_KEY_ID: 'key',
-  R2_SECRET_ACCESS_KEY: 'secret',
-  R2_BUCKET: 'engaging-artifacts',
-  R2_PUBLIC_BASE: 'https://artifacts.example.com',
 };
 
 const setup =
@@ -54,13 +49,11 @@ describe('validate', () => {
   });
 
   it('throws when a url is malformed', () => {
-    expect(setup({ R2_PUBLIC_BASE: 'not-a-url' })).toThrow(/R2_PUBLIC_BASE —/);
+    expect(setup({ WORKER_URL: 'not-a-url' })).toThrow(/WORKER_URL —/);
   });
 
   it('throws when a required credential is empty', () => {
-    expect(setup({ R2_SECRET_ACCESS_KEY: '' })).toThrow(
-      /R2_SECRET_ACCESS_KEY —/,
-    );
+    expect(setup({ RESEND_API_KEY: '' })).toThrow(/RESEND_API_KEY —/);
   });
 
   it('labels a root-level failure when the config is not an object', () => {
