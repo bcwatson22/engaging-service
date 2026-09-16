@@ -9,7 +9,7 @@ import {
 import { RenderService } from '../render/render.service';
 import { SignatureGuard } from './signature.guard';
 
-type TAccepted = { jobIds: string[] };
+type Accepted = { jobIds: string[] };
 
 @Controller('webhooks')
 export class WebhooksController {
@@ -23,9 +23,9 @@ export class WebhooksController {
   @Post('hygraph')
   @UseGuards(SignatureGuard)
   @HttpCode(HttpStatus.ACCEPTED)
-  async hygraph(): Promise<TAccepted> {
+  async hygraph(): Promise<Accepted> {
     return { jobIds: await this.render.enqueueAll() };
   }
 }
 
-export type { TAccepted };
+export type { Accepted };

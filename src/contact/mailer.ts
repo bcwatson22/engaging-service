@@ -1,15 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import type { TEnv } from '../config/env.schema';
-import type { TContact } from './contact.schema';
+import type { Env } from '../config/env.schema';
+import type { Contact } from './contact.schema';
 
 const endpoint = 'https://api.resend.com/emails';
 
 /* Resend's REST body is snake_case, unlike their SDK's camelCase. Using fetch
    rather than the SDK keeps a dependency out of the image for one POST, and
    makes this trivially stubbable in a test. */
-type TResendBody = {
+type ResendBody = {
   from: string;
   to: string;
   subject: string;
@@ -22,10 +22,10 @@ type TResendBody = {
    address there would fail their domain's DMARC anyway. Replying in a mail
    client then goes to the person who wrote, which is the whole point. */
 const bodyFor = (
-  { name, email, message }: TContact,
+  { name, email, message }: Contact,
   from: string,
   to: string,
-): TResendBody => ({
+): ResendBody => ({
   from,
   to,
   subject: `Contact form — ${name}`,
@@ -37,13 +37,13 @@ const bodyFor = (
 export class Mailer {
   private readonly logger = new Logger(Mailer.name);
 
-  constructor(private readonly config: ConfigService<TEnv, true>) {}
+  constructor(private readonly config: ConfigService<Env, true>) {}
 
   /* Throws on failure rather than returning a flag, so the controller cannot
      accidentally answer 202 to a message that was never sent. The response
      body is logged but never returned to the caller — it can carry provider
      detail that is useful here and useless to a visitor. */
-  async send(contact: TContact): Promise<void> {
+  async send(contact: Contact): Promise<void> {
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -70,4 +70,4 @@ export class Mailer {
 }
 
 export { endpoint, bodyFor };
-export type { TResendBody };
+export type { ResendBody };

@@ -14,7 +14,9 @@ import { ContactService } from './contact.service';
 
 /* Only the headers are needed, so this is declared locally rather than
    pulling in @types/express — matching SecretGuard. */
-type TRequest = { headers: Record<string, string | string[] | undefined> };
+type IncomingRequest = {
+  headers: Record<string, string | string[] | undefined>;
+};
 
 /* Fly terminates TLS at its proxy, so the socket address is the proxy's. This
    header carries the real client, and it is set by the proxy rather than
@@ -26,9 +28,9 @@ const addressHeader = 'fly-client-ip';
    header — a local curl, or a future move to another host. */
 const unknownAddress = 'unknown';
 
-type TAccepted = { received: true };
+type Accepted = { received: true };
 
-const accepted: TAccepted = { received: true };
+const accepted: Accepted = { received: true };
 
 @Controller('contact')
 export class ContactController {
@@ -44,8 +46,8 @@ export class ContactController {
   @HttpCode(HttpStatus.ACCEPTED)
   async submit(
     @Body() body: unknown,
-    @Req() request: TRequest,
-  ): Promise<TAccepted> {
+    @Req() request: IncomingRequest,
+  ): Promise<Accepted> {
     const result = contactSchema.safeParse(body);
 
     /* Field paths, not messages: enough for the form to mark the offending
@@ -75,4 +77,4 @@ export class ContactController {
 }
 
 export { addressHeader, unknownAddress, accepted };
-export type { TAccepted };
+export type { Accepted };

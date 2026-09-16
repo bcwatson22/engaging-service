@@ -2,13 +2,13 @@ import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 
 import { cvPdf } from '../render/render.constants';
-import { checkLink, type TResult } from './check';
+import { checkLink, type Result } from './check';
 import { LinksService } from './links.service';
 import { SweepStore } from './sweep.store';
 
 vi.mock('./check', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  checkLink: vi.fn<(url: string) => Promise<TResult>>(),
+  checkLink: vi.fn<(url: string) => Promise<Result>>(),
 }));
 
 const siteUrl = 'https://www.engaging.engineering';
@@ -19,19 +19,15 @@ const page = `
   <a href="/cv">CV</a>
 `;
 
-const ok = (url: string): TResult => ({ url, status: 200, state: 'ok' });
+const ok = (url: string): Result => ({ url, status: 200, state: 'ok' });
 
-type TOptions = {
+type Options = {
   html?: string;
   pageOk?: boolean;
-  results?: Record<string, TResult>;
+  results?: Record<string, Result>;
 };
 
-const setup = async ({
-  html = page,
-  pageOk = true,
-  results,
-}: TOptions = {}) => {
+const setup = async ({ html = page, pageOk = true, results }: Options = {}) => {
   vi.stubGlobal(
     'fetch',
     vi.fn<typeof globalThis.fetch>().mockResolvedValue({

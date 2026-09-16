@@ -2,9 +2,9 @@ import { Test } from '@nestjs/testing';
 
 import { redisClient } from '../redis/redis.module';
 import { cvPdfJob } from '../render/render.constants';
-import { CheckStore, isCheck, prefix, type TCheck } from './check.store';
+import { CheckStore, isCheck, prefix, type Check } from './check.store';
 
-const check: TCheck = {
+const check: Check = {
   at: '2026-08-17T12:00:00.000Z',
   drifted: true,
   queued: true,
@@ -64,7 +64,7 @@ describe('CheckStore', () => {
 
     await store.set(cvPdfJob, { drifted: true, queued: false, stale: true });
 
-    expect(JSON.parse(set.mock.calls[0][1]) as TCheck).toMatchObject({
+    expect(JSON.parse(set.mock.calls[0][1]) as Check).toMatchObject({
       drifted: true,
       queued: false,
       stale: true,
@@ -76,7 +76,7 @@ describe('CheckStore', () => {
 
     await store.set(cvPdfJob, { drifted: false, queued: false, stale: false });
 
-    const { at } = JSON.parse(set.mock.calls[0][1]) as TCheck;
+    const { at } = JSON.parse(set.mock.calls[0][1]) as Check;
 
     expect(Number.isNaN(Date.parse(at))).toBe(false);
   });
@@ -87,12 +87,17 @@ describe('isCheck', () => {
     expect(isCheck(check)).toBe(true);
   });
 
+  it('accepts a check that recorded the live page it saw', () => {
+    expect(isCheck({ ...check, live: 'abc123' })).toBe(true);
+  });
+
   it.each([
     ['null', null],
     ['a string', 'nope'],
     ['no time', { ...check, at: undefined }],
     ['a flag that is not a boolean', { ...check, drifted: 'yes' }],
     ['a missing flag', { ...check, stale: undefined }],
+    ['a live hash that is not a string', { ...check, live: 42 }],
   ])('rejects %s', (_label, value) => {
     expect(isCheck(value)).toBe(false);
   });

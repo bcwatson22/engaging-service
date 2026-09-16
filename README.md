@@ -3,7 +3,7 @@
 [![CI](https://github.com/bcwatson22/engaging-service/actions/workflows/ci.yml/badge.svg)](https://github.com/bcwatson22/engaging-service/actions/workflows/ci.yml)
 ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-2EBB4F?labelColor=343B42)
 
-Request-time tier for [engaging.engineering](https://www.engaging.engineering) — a [NestJS](https://nestjs.com/) app that owns the things a person waits on: a contact endpoint, a status page, and two weekly checks that catch the site drifting from what it publishes. It used to render the site's PDF and splash screens too; that half now lives in [engaging-worker](https://github.com/bcwatson22/engaging-worker), and this container no longer carries a browser. The site itself lives in [engaging](https://github.com/bcwatson22/engaging).
+Request-time tier for [engaging.engineering](https://www.engaging.engineering) — a [NestJS](https://nestjs.com/) app that owns the things a person waits on: a contact endpoint, a status page, and two checks that catch the site drifting from what it publishes. It used to render the site's PDF and splash screens too; that half now lives in [engaging-worker](https://github.com/bcwatson22/engaging-worker), and this container no longer carries a browser. The site itself lives in [engaging](https://github.com/bcwatson22/engaging).
 
 ## Stack
 
@@ -214,7 +214,7 @@ slow left. A render still takes tens of seconds; it happens somewhere nobody is 
 
 ## Status
 
-What is here is the request-time tier: the contact endpoint, the status page, the weekly
+What is here is the request-time tier: the contact endpoint, the status page, the
 integrity check and the dead-link sweep. No browser, no queue worker, no object storage.
 
 ## Development
@@ -252,6 +252,7 @@ fly releases -a engaging-service
 | `POST /contact`               | A visitor     | The site's contact form. CORS-locked to `SITE_URL`. See below.                                |
 | `POST /render/cv-pdf`         | You, by hand  | Guarded by `x-render-secret`. Forces a render, skipping the content check.                    |
 | `POST /render/startup-images` | You, by hand  | As above, for the 22 PWA splash screens.                                                      |
+| `POST /integrity`             | A site deploy | Guarded by `x-render-secret`. Runs the integrity check now; queues only what has drifted.     |
 | `GET /status`                 | Anyone        | What the last render produced and how deep the queue is. Cached for a minute.                 |
 | `GET /health`                 | The platform  | Readiness.                                                                                    |
 
@@ -303,39 +304,46 @@ the machine awake.
 
 ## The integrity check
 
-Artifacts are only ever re-made when the CMS publishes. A change shipped from
-the site's own repo — a print stylesheet, a font, a layout fix — changes the
-page without touching Hygraph, so the PDF and the splash screens quietly drift
-from what they are supposed to depict. `POST /render/cv-pdf` exists precisely
-because of that, which is an admission that the automation has a gap rather
-than a fix for it.
+Artifacts were only ever re-made when the CMS publishes. A change shipped from
+the site's own repo — a print stylesheet, a font, a layout fix, a component
+rendering the address differently — changes the page without touching Hygraph,
+so the PDF and the splash screens quietly drift from what they are supposed to
+depict.
 
-Weekly, this hashes the live pages an artifact is derived from and compares
-that against the hash of whatever was last rendered from them. On a mismatch it
+The check hashes the live pages an artifact is derived from and compares that
+against the hash of whatever was last rendered from them. On a mismatch it
 queues a render — unforced, so the render's own content check still waits for
 the site rather than skipping the retry ladder.
 
+It runs two ways:
+
+- **On every production deploy of the site.** The site's GitHub workflow calls
+  `POST /integrity` once Vercel reports the deploy live, which is where this
+  drift actually arrives, so a merged change reaches the PDF within minutes.
+  A deploy that touches neither the home page nor the CV costs two page
+  fetches and queues nothing.
+- **Weekly**, as the backstop for a deploy whose call did not land.
+
 The result of the last check is reported by `GET /status`, per artifact:
 
-| Field     | Means                                                                             |
-| --------- | --------------------------------------------------------------------------------- |
-| `drifted` | The live page no longer matches what was last rendered from it.                   |
-| `queued`  | This check enqueued a render to put that right.                                   |
-| `stale`   | It drifted, a previous check already queued a render, and it is _still_ drifting. |
+| Field     | Means                                                                                                |
+| --------- | ---------------------------------------------------------------------------------------------------- |
+| `drifted` | The live page no longer matches what was last rendered from it.                                      |
+| `queued`  | This check enqueued a render to put that right.                                                      |
+| `stale`   | It drifted, a previous check already queued a render for this same page, and it is _still_ drifting. |
+| `live`    | The hash of the live page this check saw.                                                            |
 
 `stale` is the one to care about: something is wrong that re-rendering will not
 fix. The check deliberately stops queueing at that point rather than asking
-again every week, which would be a slow loop that never fixes anything and
-hides the problem in a normal-looking log line.
+again on every check, which would be a loop that never fixes anything and hides
+the problem in a normal-looking log line. It compares `live` to decide that: two
+deploys in a row that each change the page are two drifts, and the second still
+gets its render.
 
 Two things it does not do. Nothing rendered yet is not drift — there is no
 previous version to have drifted from, and queueing there would fight whatever
-is meant to produce the first one. And it only runs at all because the machine
-stopped sleeping: a timer in a stopped container never fires.
-
-A deploy hook from the site would be tighter than a schedule, and is the better
-answer if that pipeline ever calls this. The schedule is the version that needs
-no coupling between two deploys.
+is meant to produce the first one. And the schedule only runs at all because
+the machine stopped sleeping: a timer in a stopped container never fires.
 
 ## The dead-link sweep
 

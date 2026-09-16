@@ -7,7 +7,7 @@ import {
   payloadField,
   renderStream,
   streamVersion,
-  type TStreamJob,
+  type StreamJob,
 } from './stream.constants';
 import { StreamService } from './stream.service';
 import { WorkerClient } from './worker.client';
@@ -89,8 +89,8 @@ const setup = async (
   };
 };
 
-const payloadOf = (xadd: ReturnType<typeof vi.fn>): TStreamJob =>
-  JSON.parse(xadd.mock.calls[0].at(-1) as string) as TStreamJob;
+const payloadOf = (xadd: ReturnType<typeof vi.fn>): StreamJob =>
+  JSON.parse(xadd.mock.calls[0].at(-1) as string) as StreamJob;
 
 describe('enqueue', () => {
   beforeEach(() => vi.clearAllMocks());

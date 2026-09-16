@@ -39,7 +39,7 @@ const envSchema = z.object({
   CONTACT_TO: z.email(),
 });
 
-type TEnv = z.infer<typeof envSchema>;
+type Env = z.infer<typeof envSchema>;
 
 const invalidMessage = 'Invalid environment configuration:';
 
@@ -50,7 +50,7 @@ const formatIssues = (error: z.ZodError): string =>
 
 /* Runs once at boot via ConfigModule, so a missing or malformed variable
    fails the deploy rather than the first request that happens to need it. */
-const validate = (config: Record<string, unknown>): TEnv => {
+const validate = (config: Record<string, unknown>): Env => {
   const result = envSchema.safeParse(config);
 
   if (!result.success) {
@@ -61,4 +61,4 @@ const validate = (config: Record<string, unknown>): TEnv => {
 };
 
 export { envSchema, validate, invalidMessage, defaultPort };
-export type { TEnv };
+export type { Env };

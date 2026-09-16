@@ -35,7 +35,7 @@ const contactSchema = z.object({
   renderedAt: z.coerce.number().int().positive(),
 });
 
-type TContact = z.infer<typeof contactSchema>;
+type Contact = z.infer<typeof contactSchema>;
 
 /* Split from the schema rather than folded in as a refinement, so a failure
    here can be answered differently from a validation failure: a human seeing
@@ -44,7 +44,7 @@ type TContact = z.infer<typeof contactSchema>;
    Both signals live together because both mean the same thing and get the
    same response — a filled honeypot is conclusive, a suspicious elapsed time
    is not, and neither is worth reporting separately to whoever sent it. */
-const looksAutomated = (contact: TContact, now: number): boolean => {
+const looksAutomated = (contact: Contact, now: number): boolean => {
   if (contact[honeypotField] !== '') return true;
 
   const elapsed = now - contact.renderedAt;
@@ -62,4 +62,4 @@ export {
   maxMessage,
   minMessage,
 };
-export type { TContact };
+export type { Contact };

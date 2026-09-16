@@ -31,7 +31,7 @@ const streamMaxLength = 1000;
 const dedupePrefix = 'stream-dedupe';
 const dedupeSeconds = 60;
 
-type TStreamJob = {
+type StreamJob = {
   v: number;
   job: string;
   contentHash: string;
@@ -49,4 +49,4 @@ export {
   dedupePrefix,
   dedupeSeconds,
 };
-export type { TStreamJob };
+export type { StreamJob };

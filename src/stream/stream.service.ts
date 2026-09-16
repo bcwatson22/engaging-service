@@ -3,7 +3,7 @@ import type IORedis from 'ioredis';
 
 import { redisClient } from '../redis/redis.module';
 import { HashStore } from '../render/hash.store';
-import type { TArtifact } from '../render/render.constants';
+import type { Artifact } from '../render/render.constants';
 import {
   deadLetterStream,
   dedupePrefix,
@@ -13,13 +13,13 @@ import {
   renderStream,
   streamMaxLength,
   streamVersion,
-  type TStreamJob,
+  type StreamJob,
 } from './stream.constants';
 import { WorkerClient } from './worker.client';
 
 /* What the status page reports about the queue: work not yet delivered, work
    a consumer holds and has not acked, and work given up on. */
-type TDepth = { waiting: number; pending: number; dead: number };
+type Depth = { waiting: number; pending: number; dead: number };
 
 const duplicateMessage = 'already queued moments ago, collapsing';
 
@@ -51,7 +51,7 @@ export class StreamService {
      Never throws: this runs alongside the BullMQ enqueue that still does the
      real work, and a failure here must not take the working path down with
      it. */
-  async enqueue(artifact: TArtifact, force = false): Promise<string | null> {
+  async enqueue(artifact: Artifact, force = false): Promise<string | null> {
     try {
       if (!(await this.claim(artifact))) {
         this.logger.log(`${artifact} ${duplicateMessage}`);
@@ -88,7 +88,7 @@ export class StreamService {
   /* SET NX is the whole of the idempotency. A stream id cannot carry it —
      Redis ids must be <ms>-<seq> and a hash is rejected outright — so the
      collapse has to live in a key beside the stream rather than in it. */
-  private async claim(artifact: TArtifact): Promise<boolean> {
+  private async claim(artifact: Artifact): Promise<boolean> {
     const claimed = await this.client.set(
       `${dedupePrefix}:${artifact}`,
       '1',
@@ -107,9 +107,9 @@ export class StreamService {
      previous hash instead costs one lookup and makes a dead letter legible:
      it says which version this job was meant to supersede. */
   private async payload(
-    artifact: TArtifact,
+    artifact: Artifact,
     force: boolean,
-  ): Promise<TStreamJob> {
+  ): Promise<StreamJob> {
     const previous = (await this.hashes.get(artifact)) ?? '';
 
     return {
@@ -132,7 +132,7 @@ export class StreamService {
 
      The group's `lag` is the honest measure: entries added but not yet handed
      to a consumer. */
-  async depth(): Promise<TDepth> {
+  async depth(): Promise<Depth> {
     try {
       const groups = (await this.client.call(
         'XINFO',
@@ -188,4 +188,4 @@ export class StreamService {
 }
 
 export { duplicateMessage };
-export type { TDepth };
+export type { Depth };

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 import { StreamService } from '../stream/stream.service';
-import { artifacts, type TArtifact } from './render.constants';
+import { artifacts, type Artifact } from './render.constants';
 
 /* Returned when the stream collapsed the job as a duplicate. The caller wants
    an id per artifact, and a webhook that 500s because a duplicate was
@@ -24,7 +24,7 @@ export class RenderService {
      `force` skips the worker's unchanged-content check. A CMS publish should
      never set it, because waiting for the content to change is the entire
      point; a manual re-render after a print-stylesheet change must. */
-  async enqueue(artifact: TArtifact, force = false): Promise<string> {
+  async enqueue(artifact: Artifact, force = false): Promise<string> {
     const streamed = await this.stream.enqueue(artifact, force);
 
     this.logger.log(

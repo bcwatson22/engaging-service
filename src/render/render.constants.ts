@@ -3,9 +3,9 @@ const startupImagesJob = 'startup-images';
 
 const artifacts = [cvPdfJob, startupImagesJob] as const;
 
-type TArtifact = (typeof artifacts)[number];
+type Artifact = (typeof artifacts)[number];
 
-const isArtifact = (value: string): value is TArtifact =>
+const isArtifact = (value: string): value is Artifact =>
   (artifacts as readonly string[]).includes(value);
 
 /* Short, because a CV can be updated minutes before someone is sent the
@@ -62,7 +62,7 @@ const stalledInterval = 300_000;
    recorded under. The processor reaches for these constants directly when it
    renders; this states the association once so the integrity check cannot
    drift from it by checking the wrong page. */
-const sourcesFor = (artifact: TArtifact): { paths: string[]; key: string } =>
+const sourcesFor = (artifact: Artifact): { paths: string[]; key: string } =>
   artifact === cvPdfJob
     ? { paths: [cvPdf.path], key: cvPdf.key }
     : { paths: [...startupImages.paths], key: startupImages.key };
@@ -78,4 +78,4 @@ export {
   cvPdf,
   startupImages,
 };
-export type { TArtifact };
+export type { Artifact };

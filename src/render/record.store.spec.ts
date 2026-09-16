@@ -6,21 +6,21 @@ import {
   limit,
   prefix,
   RecordStore,
-  type TOutcome,
-  type TRecord,
+  type Outcome,
+  type Render,
 } from './record.store';
 import { cvPdfJob } from './render.constants';
 
 const publicUrl = 'https://artifacts.example.com/billy-watson-cv.pdf';
 
-const outcome: TOutcome = {
+const outcome: Outcome = {
   result: publicUrl,
   durationMs: 14_000,
   attempts: 3,
   elapsedMs: 49_000,
 };
 
-const record: TRecord = { at: '2026-08-17T12:00:00.000Z', ...outcome };
+const record: Render = { at: '2026-08-17T12:00:00.000Z', ...outcome };
 
 const setup = async ({ stored = [] as string[] } = {}) => {
   const lrange = vi.fn<() => Promise<string[]>>().mockResolvedValue(stored);
@@ -133,7 +133,7 @@ describe('RecordStore', () => {
 
       const [, written] = lpush.mock.calls[0];
 
-      expect(JSON.parse(written) as TRecord).toMatchObject(outcome);
+      expect(JSON.parse(written) as Render).toMatchObject(outcome);
     });
 
     /* Stamped here, so a caller cannot record a render as having happened at
@@ -144,7 +144,7 @@ describe('RecordStore', () => {
       await store.add(cvPdfJob, outcome);
 
       const [, written] = lpush.mock.calls[0];
-      const { at } = JSON.parse(written) as TRecord;
+      const { at } = JSON.parse(written) as Render;
 
       expect(Number.isNaN(Date.parse(at))).toBe(false);
     });

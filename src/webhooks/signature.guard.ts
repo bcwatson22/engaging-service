@@ -7,26 +7,26 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import type { TEnv } from '../config/env.schema';
+import type { Env } from '../config/env.schema';
 
 const signatureHeader = 'gcms-signature';
 
 /* rawBody is populated because the app is created with `rawBody: true`.
    Verification must use the bytes Hygraph signed — a parsed and re-serialised
    body will not reproduce the same HMAC. */
-type TSignedRequest = {
+type SignedRequest = {
   headers: Record<string, string | string[] | undefined>;
   rawBody?: Buffer;
 };
 
 @Injectable()
 export class SignatureGuard implements CanActivate {
-  constructor(private readonly config: ConfigService<TEnv, true>) {}
+  constructor(private readonly config: ConfigService<Env, true>) {}
 
   canActivate(context: ExecutionContext): boolean {
     const { headers, rawBody } = context
       .switchToHttp()
-      .getRequest<TSignedRequest>();
+      .getRequest<SignedRequest>();
 
     const signature = headers[signatureHeader];
 
