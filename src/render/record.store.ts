@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type IORedis from 'ioredis';
 
 import { redisClient } from '../redis/redis.module';
-import type { TArtifact } from './render.constants';
+import type { Artifact } from './render.constants';
 
 /* A new prefix rather than the single key this replaced. That key holds a
    string, and pushing a list onto it would fail with WRONGTYPE against a
@@ -25,7 +25,7 @@ const limit = 20;
    publish race that the content-hash check retries through. `attempts` is how
    many passes that took. Recorded because the logs are the only other place
    this exists, and they go with the machine. */
-type TRecord = {
+type Render = {
   at: string;
   result: string;
   durationMs: number;
@@ -35,14 +35,14 @@ type TRecord = {
 
 /* What the processor knows; `at` is stamped here so a caller cannot record a
    render as having happened at a time of its choosing. */
-type TOutcome = Omit<TRecord, 'at'>;
+type Outcome = Omit<Render, 'at'>;
 
 const isNumber = (value: unknown): boolean => typeof value === 'number';
 
-const isRecord = (value: unknown): value is TRecord => {
+const isRecord = (value: unknown): value is Render => {
   if (typeof value !== 'object' || value === null) return false;
 
-  const { at, result, durationMs, attempts, elapsedMs } = value as TRecord;
+  const { at, result, durationMs, attempts, elapsedMs } = value as Render;
 
   return (
     typeof at === 'string' &&
@@ -59,7 +59,7 @@ export class RecordStore {
 
   /* Newest first, so the page's "last rendered" is the head of the list and
      needs no sorting. */
-  async history(artifact: TArtifact): Promise<TRecord[]> {
+  async history(artifact: Artifact): Promise<Render[]> {
     const stored = await this.client.lrange(
       `${prefix}:${artifact}`,
       0,
@@ -73,8 +73,8 @@ export class RecordStore {
      render loop went wrong. Both in one pipeline: two round trips to Upstash
      for something written a couple of times a month is still two more than
      it needs. */
-  async add(artifact: TArtifact, outcome: TOutcome): Promise<void> {
-    const record: TRecord = { at: new Date().toISOString(), ...outcome };
+  async add(artifact: Artifact, outcome: Outcome): Promise<void> {
+    const record: Render = { at: new Date().toISOString(), ...outcome };
     const key = `${prefix}:${artifact}`;
 
     await this.client
@@ -88,7 +88,7 @@ export class RecordStore {
 /* Anything unreadable is dropped rather than thrown over. A status page is not
    worth failing for a value someone changed by hand, and one bad entry should
    not take the rest of the history with it. */
-const parse = (stored: string): TRecord | null => {
+const parse = (stored: string): Render | null => {
   try {
     const value: unknown = JSON.parse(stored);
 
@@ -99,4 +99,4 @@ const parse = (stored: string): TRecord | null => {
 };
 
 export { prefix, limit, isRecord, parse };
-export type { TRecord, TOutcome };
+export type { Render, Outcome };

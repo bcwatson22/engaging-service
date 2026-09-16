@@ -14,12 +14,12 @@ const userAgent =
    nothing about whether the link works for a person — LinkedIn answers 999 to
    anything that looks automated, and treating that as broken would train
    anyone reading this to ignore the whole report. */
-type TState = 'ok' | 'blocked' | 'broken';
+type State = 'ok' | 'blocked' | 'broken';
 
-type TResult = {
+type Result = {
   url: string;
   status: number;
-  state: TState;
+  state: State;
 };
 
 /* Statuses that mean "not for robots" rather than "not there".
@@ -32,13 +32,13 @@ const blockedStatuses = new Set([401, 403, 405, 429, 999]);
    show. */
 const noResponse = 0;
 
-const stateFor = (status: number): TState => {
+const stateFor = (status: number): State => {
   if (status >= 200 && status < 400) return 'ok';
 
   return blockedStatuses.has(status) ? 'blocked' : 'broken';
 };
 
-const checkLink = async (url: string): Promise<TResult> => {
+const checkLink = async (url: string): Promise<Result> => {
   try {
     const response = await fetch(url, {
       method,
@@ -63,4 +63,4 @@ export {
   blockedStatuses,
   noResponse,
 };
-export type { TResult, TState };
+export type { Result, State };

@@ -2,9 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
-import type { TEnv } from '../config/env.schema';
+import type { Env } from '../config/env.schema';
 import { cvPdf } from '../render/render.constants';
-import { checkLink, type TResult } from './check';
+import { checkLink, type Result } from './check';
 import { extractLinks } from './extract';
 import { SweepStore } from './sweep.store';
 
@@ -16,8 +16,8 @@ const schedule = CronExpression.EVERY_WEEK;
 /* Sequential rather than all at once. There are a dozen or so links and no
    hurry; firing them in parallel makes this look like a scanner to the hosts
    least likely to give it the benefit of the doubt. */
-const checkEach = async (urls: string[]): Promise<TResult[]> => {
-  const results: TResult[] = [];
+const checkEach = async (urls: string[]): Promise<Result[]> => {
+  const results: Result[] = [];
 
   for (const url of urls) results.push(await checkLink(url));
 
@@ -30,7 +30,7 @@ export class LinksService {
 
   constructor(
     private readonly sweeps: SweepStore,
-    private readonly config: ConfigService<TEnv, true>,
+    private readonly config: ConfigService<Env, true>,
   ) {}
 
   @Cron(schedule, { name: 'links' })
@@ -43,7 +43,7 @@ export class LinksService {
      Reported, never emailed. A weekly message saying LinkedIn answered 999
      again would train anyone receiving it to ignore the next one, including
      the time it is a link that genuinely died. */
-  async sweep(): Promise<TResult[]> {
+  async sweep(): Promise<Result[]> {
     const url = `${this.config.get('SITE_URL', { infer: true })}${cvPdf.path}`;
     const response = await fetch(url, {
       headers: { 'cache-control': 'no-cache' },

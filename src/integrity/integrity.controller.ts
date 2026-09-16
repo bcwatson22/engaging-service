@@ -6,12 +6,12 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
-import type { TArtifact } from '../render/render.constants';
+import type { Artifact } from '../render/render.constants';
 import { SecretGuard } from '../render/secret.guard';
-import type { TOutcome } from './check.store';
+import type { Outcome } from './check.store';
 import { IntegrityService } from './integrity.service';
 
-type TChecked = { checks: Record<TArtifact, TOutcome> };
+type Checked = { checks: Record<Artifact, Outcome> };
 
 @Controller('integrity')
 @UseGuards(SecretGuard)
@@ -27,9 +27,9 @@ export class IntegrityController {
      renders they queued are still to come. */
   @Post()
   @HttpCode(HttpStatus.OK)
-  async check(): Promise<TChecked> {
+  async check(): Promise<Checked> {
     return { checks: await this.integrity.checkAll() };
   }
 }
 
-export type { TChecked };
+export type { Checked };

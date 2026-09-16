@@ -1,13 +1,13 @@
 import { Test } from '@nestjs/testing';
 
-import { honeypotField, minElapsedMs, type TContact } from './contact.schema';
+import { honeypotField, minElapsedMs, type Contact } from './contact.schema';
 import { ContactService } from './contact.service';
 import { Mailer } from './mailer';
 import { RateLimitStore } from './rate-limit.store';
 
 const address = '81.2.69.142';
 
-const contact = (overrides: Partial<TContact> = {}): TContact => ({
+const contact = (overrides: Partial<Contact> = {}): Contact => ({
   name: 'Tom Tollafield',
   email: 'tom@example.com',
   message: 'I would like to talk to you about a role.',

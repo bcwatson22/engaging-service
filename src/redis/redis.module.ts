@@ -2,7 +2,7 @@ import { Global, Inject, Module, type OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type IORedis from 'ioredis';
 
-import type { TEnv } from '../config/env.schema';
+import type { Env } from '../config/env.schema';
 import { createConnection } from './connection';
 
 /* One client for every plain key/value store in the app.
@@ -27,7 +27,7 @@ const redisClient = 'REDIS_CLIENT';
     {
       provide: redisClient,
       inject: [ConfigService],
-      useFactory: (config: ConfigService<TEnv, true>): IORedis =>
+      useFactory: (config: ConfigService<Env, true>): IORedis =>
         createConnection(config.get('REDIS_URL', { infer: true })),
     },
   ],

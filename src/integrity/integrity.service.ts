@@ -2,16 +2,16 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
-import type { TEnv } from '../config/env.schema';
+import type { Env } from '../config/env.schema';
 import { fetchCombinedHash } from '../render/content-hash';
 import { HashStore } from '../render/hash.store';
 import {
   artifacts,
   sourcesFor,
-  type TArtifact,
+  type Artifact,
 } from '../render/render.constants';
 import { RenderService } from '../render/render.service';
-import { CheckStore, type TOutcome } from './check.store';
+import { CheckStore, type Outcome } from './check.store';
 
 /* The hole this fills: artifacts are only ever re-made when the CMS publishes.
    A change shipped from the site's own repo — a print stylesheet, a font, a
@@ -36,7 +36,7 @@ export class IntegrityService {
     private readonly hashes: HashStore,
     private readonly checks: CheckStore,
     private readonly render: RenderService,
-    private readonly config: ConfigService<TEnv, true>,
+    private readonly config: ConfigService<Env, true>,
   ) {}
 
   @Cron(schedule, { name: 'integrity' })
@@ -46,8 +46,8 @@ export class IntegrityService {
 
   /* One artifact at a time, so two renders are not queued in the same breath
      as their hashes are fetched. */
-  async checkAll(): Promise<Record<TArtifact, TOutcome>> {
-    const outcomes = {} as Record<TArtifact, TOutcome>;
+  async checkAll(): Promise<Record<Artifact, Outcome>> {
+    const outcomes = {} as Record<Artifact, Outcome>;
 
     for (const artifact of artifacts)
       outcomes[artifact] = await this.check(artifact);
@@ -57,7 +57,7 @@ export class IntegrityService {
 
   /* Public so it can be run deliberately as well as on the schedule, and so
      the decision can be tested without waiting a week. */
-  async check(artifact: TArtifact): Promise<TOutcome> {
+  async check(artifact: Artifact): Promise<Outcome> {
     const { paths, key } = sourcesFor(artifact);
     const siteUrl = this.config.get('SITE_URL', { infer: true });
 
@@ -74,10 +74,10 @@ export class IntegrityService {
   }
 
   private async decide(
-    artifact: TArtifact,
+    artifact: Artifact,
     live: string,
     rendered: string | null,
-  ): Promise<TOutcome> {
+  ): Promise<Outcome> {
     /* Nothing rendered yet is not drift. There is no previous version for the
        page to have drifted from, and queueing a render here would fight with
        whatever is already meant to produce the first one. */

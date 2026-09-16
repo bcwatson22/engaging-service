@@ -2,17 +2,17 @@ import { Test } from '@nestjs/testing';
 
 import { cvPdfJob, startupImagesJob } from '../render/render.constants';
 import { SecretGuard } from '../render/secret.guard';
-import type { TOutcome } from './check.store';
+import type { Outcome } from './check.store';
 import { IntegrityController } from './integrity.controller';
 import { IntegrityService } from './integrity.service';
 
-const current: TOutcome = {
+const current: Outcome = {
   drifted: false,
   queued: false,
   stale: false,
   live: 'same',
 };
-const drifted: TOutcome = {
+const drifted: Outcome = {
   drifted: true,
   queued: true,
   stale: false,
@@ -21,7 +21,7 @@ const drifted: TOutcome = {
 
 const setup = async () => {
   const checkAll = vi
-    .fn<() => Promise<Record<string, TOutcome>>>()
+    .fn<() => Promise<Record<string, Outcome>>>()
     .mockResolvedValue({ [cvPdfJob]: drifted, [startupImagesJob]: current });
 
   const module = await Test.createTestingModule({

@@ -1,13 +1,13 @@
 import { Test } from '@nestjs/testing';
 
-import { CheckStore, type TCheck } from '../integrity/check.store';
-import { SweepStore, type TSweep } from '../links/sweep.store';
-import { RecordStore, type TRecord } from '../render/record.store';
+import { CheckStore, type Check } from '../integrity/check.store';
+import { SweepStore, type Sweep } from '../links/sweep.store';
+import { RecordStore, type Render } from '../render/record.store';
 import { cvPdfJob, startupImagesJob } from '../render/render.constants';
 import { StreamService } from '../stream/stream.service';
 import { StatusService } from './status.service';
 
-const record: TRecord = {
+const record: Render = {
   at: '2026-08-17T12:00:00.000Z',
   result: 'https://artifacts.example.com/billy-watson-cv.pdf',
   durationMs: 14_000,
@@ -15,23 +15,23 @@ const record: TRecord = {
   elapsedMs: 49_000,
 };
 
-const check: TCheck = {
+const check: Check = {
   at: '2026-08-17T12:00:00.000Z',
   drifted: false,
   queued: false,
   stale: false,
 };
 
-const sweep: TSweep = {
+const sweep: Sweep = {
   at: '2026-08-17T12:00:00.000Z',
   checked: 12,
   problems: [],
 };
 
-type TOptions = {
-  links?: TSweep | null;
-  records?: Record<string, TRecord[]>;
-  checks?: Record<string, TCheck | null>;
+type Options = {
+  links?: Sweep | null;
+  records?: Record<string, Render[]>;
+  checks?: Record<string, Check | null>;
   depth?: { waiting: number; pending: number; dead: number };
 };
 
@@ -40,9 +40,9 @@ const setup = async ({
   checks = {},
   links = null,
   depth,
-}: TOptions = {}) => {
+}: Options = {}) => {
   const history = vi
-    .fn<(artifact: string) => Promise<TRecord[]>>()
+    .fn<(artifact: string) => Promise<Render[]>>()
     .mockImplementation((artifact) => Promise.resolve(records[artifact] ?? []));
 
   const streamDepth = vi
@@ -50,7 +50,7 @@ const setup = async ({
     .mockResolvedValue(depth ?? { waiting: 2, pending: 1, dead: 3 });
 
   const getCheck = vi
-    .fn<(artifact: string) => Promise<TCheck | null>>()
+    .fn<(artifact: string) => Promise<Check | null>>()
     .mockImplementation((artifact) =>
       Promise.resolve(checks[artifact] ?? null),
     );
@@ -63,7 +63,7 @@ const setup = async ({
       {
         provide: SweepStore,
         useValue: {
-          get: vi.fn<() => Promise<TSweep | null>>().mockResolvedValue(links),
+          get: vi.fn<() => Promise<Sweep | null>>().mockResolvedValue(links),
         },
       },
       { provide: StreamService, useValue: { depth: streamDepth } },

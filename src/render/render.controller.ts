@@ -12,7 +12,7 @@ import { isArtifact } from './render.constants';
 import { RenderService } from './render.service';
 import { SecretGuard } from './secret.guard';
 
-type TAccepted = { jobId: string };
+type Accepted = { jobId: string };
 
 @Controller('render')
 @UseGuards(SecretGuard)
@@ -29,11 +29,11 @@ export class RenderController {
      two minutes recapturing twenty-two screenshots. */
   @Post(':artifact')
   @HttpCode(HttpStatus.ACCEPTED)
-  async trigger(@Param('artifact') artifact: string): Promise<TAccepted> {
+  async trigger(@Param('artifact') artifact: string): Promise<Accepted> {
     if (!isArtifact(artifact)) throw new NotFoundException();
 
     return { jobId: await this.render.enqueue(artifact, true) };
   }
 }
 
-export type { TAccepted };
+export type { Accepted };

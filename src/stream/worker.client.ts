@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import type { TEnv } from '../config/env.schema';
+import type { Env } from '../config/env.schema';
 
 /* Long enough to cover a cold boot. The image carries Chrome and was measured
    at 21.3 seconds from stopped to serving, and the Fly proxy holds the request
@@ -16,7 +16,7 @@ export class WorkerClient {
 
   private readonly base: string;
 
-  constructor(config: ConfigService<TEnv, true>) {
+  constructor(config: ConfigService<Env, true>) {
     this.base = config.get('WORKER_URL', { infer: true });
   }
 

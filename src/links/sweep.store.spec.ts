@@ -1,16 +1,16 @@
 import { Test } from '@nestjs/testing';
 
 import { redisClient } from '../redis/redis.module';
-import type { TResult } from './check';
-import { isSweep, key, SweepStore, type TSweep } from './sweep.store';
+import type { Result } from './check';
+import { isSweep, key, SweepStore, type Sweep } from './sweep.store';
 
-const problem: TResult = {
+const problem: Result = {
   url: 'https://github.com/someone',
   status: 404,
   state: 'broken',
 };
 
-const sweep: TSweep = {
+const sweep: Sweep = {
   at: '2026-08-17T12:00:00.000Z',
   checked: 12,
   problems: [problem],
@@ -63,7 +63,7 @@ describe('SweepStore', () => {
     await store.set(12, [problem]);
 
     expect(set.mock.calls[0][0]).toBe(key);
-    expect(JSON.parse(set.mock.calls[0][1]) as TSweep).toMatchObject({
+    expect(JSON.parse(set.mock.calls[0][1]) as Sweep).toMatchObject({
       checked: 12,
       problems: [problem],
     });
@@ -74,7 +74,7 @@ describe('SweepStore', () => {
 
     await store.set(0, []);
 
-    const { at } = JSON.parse(set.mock.calls[0][1]) as TSweep;
+    const { at } = JSON.parse(set.mock.calls[0][1]) as Sweep;
 
     expect(Number.isNaN(Date.parse(at))).toBe(false);
   });

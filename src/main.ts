@@ -4,7 +4,7 @@ import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from './app.module';
 import { originsFor } from './config/cors';
-import type { TEnv } from './config/env.schema';
+import type { Env } from './config/env.schema';
 
 /* 0.0.0.0 rather than the default localhost, so the process is reachable
    from outside its container — platform health checks hit the machine's
@@ -15,7 +15,7 @@ const bootstrap = async (): Promise<void> => {
   /* rawBody so the Hygraph signature can be verified against the exact
      bytes that were signed — a re-serialised body produces a different HMAC. */
   const app = await NestFactory.create(AppModule, { rawBody: true });
-  const config = app.get(ConfigService<TEnv, true>);
+  const config = app.get(ConfigService<Env, true>);
 
   app.enableCors({
     origin: originsFor(

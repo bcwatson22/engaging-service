@@ -2,9 +2,9 @@ import { Test } from '@nestjs/testing';
 
 import { cvPdfJob, startupImagesJob } from '../render/render.constants';
 import { StatusController } from './status.controller';
-import { StatusService, type TStatus } from './status.service';
+import { StatusService, type Status } from './status.service';
 
-const status: TStatus = {
+const status: Status = {
   artifacts: {
     [cvPdfJob]: [
       {
@@ -23,7 +23,7 @@ const status: TStatus = {
 };
 
 const setup = async () => {
-  const read = vi.fn<() => Promise<TStatus>>().mockResolvedValue(status);
+  const read = vi.fn<() => Promise<Status>>().mockResolvedValue(status);
 
   const module = await Test.createTestingModule({
     controllers: [StatusController],

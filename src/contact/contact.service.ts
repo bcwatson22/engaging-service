@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import { looksAutomated, type TContact } from './contact.schema';
+import { looksAutomated, type Contact } from './contact.schema';
 import { Mailer } from './mailer';
 import { RateLimitStore } from './rate-limit.store';
 
@@ -8,7 +8,7 @@ import { RateLimitStore } from './rate-limit.store';
    different status without re-deriving why. `discarded` is deliberately not an
    error: it is what a bot gets, and it must be indistinguishable from `sent`
    from the outside. */
-type TOutcome = 'sent' | 'discarded' | 'limited';
+type Outcome = 'sent' | 'discarded' | 'limited';
 
 @Injectable()
 export class ContactService {
@@ -19,7 +19,7 @@ export class ContactService {
     private readonly rateLimit: RateLimitStore,
   ) {}
 
-  async submit(contact: TContact, address: string): Promise<TOutcome> {
+  async submit(contact: Contact, address: string): Promise<Outcome> {
     /* Timing is checked before the rate limit, so an obvious bot never gets to
        consume a counter that a person sharing its address might need. */
     if (looksAutomated(contact, Date.now())) {
@@ -40,4 +40,4 @@ export class ContactService {
   }
 }
 
-export type { TOutcome };
+export type { Outcome };

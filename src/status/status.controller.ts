@@ -1,6 +1,6 @@
 import { Controller, Get, Header } from '@nestjs/common';
 
-import { StatusService, type TStatus } from './status.service';
+import { StatusService, type Status } from './status.service';
 
 /* A minute. Long enough that hitting this repeatedly cannot be used to probe
    the service or keep the machine awake, short enough that someone watching a
@@ -20,7 +20,7 @@ export class StatusController {
 
   @Get()
   @Header('cache-control', cacheControl)
-  async read(): Promise<TStatus> {
+  async read(): Promise<Status> {
     return await this.status.read();
   }
 }

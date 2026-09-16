@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type IORedis from 'ioredis';
 
 import { redisClient } from '../redis/redis.module';
-import type { TArtifact } from '../render/render.constants';
+import type { Artifact } from '../render/render.constants';
 
 const prefix = 'integrity-check';
 
@@ -21,7 +21,7 @@ const prefix = 'integrity-check';
 
    Only the last check is kept. A history of "nothing has drifted" fifty weeks
    running is not worth the space; the status page wants the current answer. */
-type TCheck = {
+type Check = {
   at: string;
   drifted: boolean;
   queued: boolean;
@@ -29,12 +29,12 @@ type TCheck = {
   live?: string;
 };
 
-type TOutcome = Omit<TCheck, 'at'>;
+type Outcome = Omit<Check, 'at'>;
 
-const isCheck = (value: unknown): value is TCheck => {
+const isCheck = (value: unknown): value is Check => {
   if (typeof value !== 'object' || value === null) return false;
 
-  const { at, drifted, queued, stale, live } = value as TCheck;
+  const { at, drifted, queued, stale, live } = value as Check;
 
   /* live is optional: checks stored before it existed are still read. */
   return (
@@ -48,7 +48,7 @@ const isCheck = (value: unknown): value is TCheck => {
 export class CheckStore {
   constructor(@Inject(redisClient) private readonly client: IORedis) {}
 
-  async get(artifact: TArtifact): Promise<TCheck | null> {
+  async get(artifact: Artifact): Promise<Check | null> {
     const stored = await this.client.get(`${prefix}:${artifact}`);
 
     if (!stored) return null;
@@ -65,12 +65,12 @@ export class CheckStore {
     }
   }
 
-  async set(artifact: TArtifact, outcome: TOutcome): Promise<void> {
-    const check: TCheck = { at: new Date().toISOString(), ...outcome };
+  async set(artifact: Artifact, outcome: Outcome): Promise<void> {
+    const check: Check = { at: new Date().toISOString(), ...outcome };
 
     await this.client.set(`${prefix}:${artifact}`, JSON.stringify(check));
   }
 }
 
 export { prefix, isCheck };
-export type { TCheck, TOutcome };
+export type { Check, Outcome };

@@ -1,8 +1,8 @@
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 
-import { honeypotField, type TContact } from './contact.schema';
-import { endpoint, Mailer, type TResendBody } from './mailer';
+import { honeypotField, type Contact } from './contact.schema';
+import { endpoint, Mailer, type ResendBody } from './mailer';
 
 const env = {
   RESEND_API_KEY: 'resend-key',
@@ -10,7 +10,7 @@ const env = {
   CONTACT_TO: 'hello@engaging.engineering',
 };
 
-const contact: TContact = {
+const contact: Contact = {
   name: 'Tom Tollafield',
   email: 'tom@example.com',
   message: 'I would like to talk to you about a role.',
@@ -43,7 +43,7 @@ const setup = async ({ ok = true, status = 200 } = {}) => {
 /* fetch's own signature types init loosely — headers may be a Headers, a
    tuple array or a record — so the recorded call is narrowed once here to
    what this caller actually sends, rather than asserted at every use. */
-type TSentRequest = {
+type SentRequest = {
   headers: Record<string, string>;
   body: string;
 };
@@ -52,18 +52,18 @@ const requestOf = (
   fetch: ReturnType<typeof setup> extends Promise<{ fetch: infer F }>
     ? F
     : never,
-): TSentRequest => {
+): SentRequest => {
   const [, init] = fetch.mock.calls[0] ?? [];
 
   if (!init) throw new Error('fetch was never called');
 
-  return init as TSentRequest;
+  return init as SentRequest;
 };
 
 /* The body is JSON on the request, so assertions read it back rather than
    matching a serialised string. */
-const bodyOf = (fetch: Parameters<typeof requestOf>[0]): TResendBody =>
-  JSON.parse(requestOf(fetch).body) as TResendBody;
+const bodyOf = (fetch: Parameters<typeof requestOf>[0]): ResendBody =>
+  JSON.parse(requestOf(fetch).body) as ResendBody;
 
 describe('Mailer', () => {
   afterEach(() => vi.unstubAllGlobals());

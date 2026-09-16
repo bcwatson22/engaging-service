@@ -9,7 +9,7 @@ import {
 } from './contact.controller';
 import { honeypotField, minElapsedMs } from './contact.schema';
 import { ContactService } from './contact.service';
-import type { TOutcome } from './contact.service';
+import type { Outcome } from './contact.service';
 
 const address = '81.2.69.142';
 
@@ -26,8 +26,8 @@ const requestFrom = (headers: Record<string, string | string[]> = {}) => ({
   headers,
 });
 
-const setup = async ({ outcome = 'sent' as TOutcome } = {}) => {
-  const submit = vi.fn<() => Promise<TOutcome>>().mockResolvedValue(outcome);
+const setup = async ({ outcome = 'sent' as Outcome } = {}) => {
+  const submit = vi.fn<() => Promise<Outcome>>().mockResolvedValue(outcome);
 
   const module = await Test.createTestingModule({
     controllers: [ContactController],

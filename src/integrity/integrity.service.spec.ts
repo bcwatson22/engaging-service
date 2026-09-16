@@ -10,7 +10,7 @@ import {
   startupImagesJob,
 } from '../render/render.constants';
 import { RenderService } from '../render/render.service';
-import { CheckStore, type TCheck } from './check.store';
+import { CheckStore, type Check } from './check.store';
 import { IntegrityService } from './integrity.service';
 
 vi.mock('../render/content-hash', () => ({
@@ -20,24 +20,24 @@ vi.mock('../render/content-hash', () => ({
 const siteUrl = 'https://www.engaging.engineering';
 const liveHash = 'live';
 
-type TOptions = {
+type Options = {
   live?: string;
   rendered?: string | null;
-  previous?: TCheck | null;
+  previous?: Check | null;
 };
 
 const setup = async ({
   live = liveHash,
   rendered = liveHash,
   previous = null,
-}: TOptions = {}) => {
+}: Options = {}) => {
   vi.mocked(fetchCombinedHash).mockResolvedValue(live);
 
   const hash = vi
     .fn<() => Promise<string | null>>()
     .mockResolvedValue(rendered);
   const getCheck = vi
-    .fn<() => Promise<TCheck | null>>()
+    .fn<() => Promise<Check | null>>()
     .mockResolvedValue(previous);
   const setCheck = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
   const enqueue = vi.fn<() => Promise<string>>().mockResolvedValue('job-1');
