@@ -104,6 +104,7 @@ describe('IntegrityService', () => {
         drifted: false,
         queued: false,
         stale: false,
+        live: liveHash,
       });
     });
 
@@ -124,6 +125,7 @@ describe('IntegrityService', () => {
         drifted: false,
         queued: false,
         stale: false,
+        live: liveHash,
       });
     });
   });
@@ -176,11 +178,12 @@ describe('IntegrityService', () => {
         drifted: true,
         queued: true,
         stale: false,
+        live: 'new',
       });
     });
   });
 
-  /* Queueing again every week would be a slow loop that never fixes anything
+  /* Queueing again on every check would be a loop that never fixes anything
      and hides the problem in a normal-looking log line. */
   describe('when it has drifted despite a render already being queued', () => {
     const stuck = {
@@ -191,6 +194,7 @@ describe('IntegrityService', () => {
         drifted: true,
         queued: true,
         stale: false,
+        live: 'new',
       },
     };
 
@@ -209,7 +213,38 @@ describe('IntegrityService', () => {
         drifted: true,
         queued: false,
         stale: true,
+        live: 'new',
       });
+    });
+
+    /* Two deploys in a row that each change the page are two drifts. The
+       second is not stuck just because the first check queued a render. */
+    it('queues again when the page has changed since that render was queued', async () => {
+      const { service, enqueue } = await setup({ ...stuck, live: 'newer' });
+
+      await expect(service.check(cvPdfJob)).resolves.toMatchObject({
+        queued: true,
+        stale: false,
+      });
+      expect(enqueue).toHaveBeenNthCalledWith(1, cvPdfJob);
+    });
+
+    /* Checks stored before the live hash was recorded cannot say which page
+       they queued for, so they are not taken as proof that this one is stuck. */
+    it('queues again when the previous check did not record the page it saw', async () => {
+      const { service, enqueue } = await setup({
+        ...stuck,
+        previous: {
+          at: stuck.previous.at,
+          drifted: true,
+          queued: true,
+          stale: false,
+        },
+      });
+
+      await service.check(cvPdfJob);
+
+      expect(enqueue).toHaveBeenCalledTimes(1);
     });
 
     /* A previous check that found drift but never queued — because it was
@@ -223,6 +258,22 @@ describe('IntegrityService', () => {
       await service.check(cvPdfJob);
 
       expect(enqueue).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('checking every artifact at once', () => {
+    it('reports what each check found', async () => {
+      const { service } = await setup({ live: 'new', rendered: 'old' });
+
+      await expect(service.checkAll()).resolves.toEqual({
+        [cvPdfJob]: { drifted: true, queued: true, stale: false, live: 'new' },
+        [startupImagesJob]: {
+          drifted: true,
+          queued: true,
+          stale: false,
+          live: 'new',
+        },
+      });
     });
   });
 

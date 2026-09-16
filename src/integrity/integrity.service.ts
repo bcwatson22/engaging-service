@@ -15,15 +15,14 @@ import { CheckStore, type TOutcome } from './check.store';
 
 /* The hole this fills: artifacts are only ever re-made when the CMS publishes.
    A change shipped from the site's own repo — a print stylesheet, a font, a
-   layout fix — changes the page without touching Hygraph, so the PDF and the
-   splash screens quietly drift from what they are supposed to depict. The
-   manual render route exists precisely because of that, which is an admission
-   that the automation has a gap rather than a fix for it.
+   layout fix, a component rendering an address differently — changes the page
+   without touching Hygraph, so the PDF and the splash screens quietly drift
+   from what they are supposed to depict.
 
-   Weekly, because the drift this catches arrives with a deploy and nobody is
-   waiting on it. A deploy hook would be tighter and is the better answer if
-   the site's pipeline ever calls this; the schedule is the version that needs
-   no coupling between two deploys.
+   Run two ways. The site's pipeline calls POST /integrity once each production
+   deploy is live, which is where this drift actually arrives, so a merged
+   change reaches the PDF within minutes. The weekly schedule stays as the
+   backstop for a deploy whose call did not land.
 
    It only runs at all because the machine stopped sleeping — a timer in a
    stopped container does not fire. */
@@ -42,7 +41,18 @@ export class IntegrityService {
 
   @Cron(schedule, { name: 'integrity' })
   async run(): Promise<void> {
-    for (const artifact of artifacts) await this.check(artifact);
+    await this.checkAll();
+  }
+
+  /* One artifact at a time, so two renders are not queued in the same breath
+     as their hashes are fetched. */
+  async checkAll(): Promise<Record<TArtifact, TOutcome>> {
+    const outcomes = {} as Record<TArtifact, TOutcome>;
+
+    for (const artifact of artifacts)
+      outcomes[artifact] = await this.check(artifact);
+
+    return outcomes;
   }
 
   /* Public so it can be run deliberately as well as on the schedule, and so
@@ -74,33 +84,38 @@ export class IntegrityService {
     if (rendered === null) {
       this.logger.log(`${artifact}: nothing rendered yet, nothing to compare`);
 
-      return { drifted: false, queued: false, stale: false };
+      return { drifted: false, queued: false, stale: false, live };
     }
 
     if (live === rendered) {
       this.logger.log(`${artifact}: current`);
 
-      return { drifted: false, queued: false, stale: false };
+      return { drifted: false, queued: false, stale: false, live };
     }
 
     const previous = await this.checks.get(artifact);
 
-    /* Already asked for once and still wrong. Queueing again every week would
-       be a slow loop that never fixes anything and hides the problem in a
-       normal-looking log line, so this stops and says so instead. */
-    if (previous?.queued) {
+    /* Already asked for once, for this same page, and still wrong. Queueing
+       again on every check would be a loop that never fixes anything and
+       hides the problem in a normal-looking log line, so this stops and says
+       so instead.
+
+       Only for the same page, though. A render queued for one deploy and a
+       further change shipped by the next are two drifts, and the second is not
+       stuck just because the first check queued something. */
+    if (previous?.queued && previous.live === live) {
       this.logger.warn(
         `${artifact}: still drifted after a render was queued — not queueing again`,
       );
 
-      return { drifted: true, queued: false, stale: true };
+      return { drifted: true, queued: false, stale: true, live };
     }
 
     await this.render.enqueue(artifact);
 
     this.logger.log(`${artifact}: drifted, queued a render`);
 
-    return { drifted: true, queued: true, stale: false };
+    return { drifted: true, queued: true, stale: false, live };
   }
 }
 

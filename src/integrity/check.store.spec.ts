@@ -87,12 +87,17 @@ describe('isCheck', () => {
     expect(isCheck(check)).toBe(true);
   });
 
+  it('accepts a check that recorded the live page it saw', () => {
+    expect(isCheck({ ...check, live: 'abc123' })).toBe(true);
+  });
+
   it.each([
     ['null', null],
     ['a string', 'nope'],
     ['no time', { ...check, at: undefined }],
     ['a flag that is not a boolean', { ...check, drifted: 'yes' }],
     ['a missing flag', { ...check, stale: undefined }],
+    ['a live hash that is not a string', { ...check, live: 42 }],
   ])('rejects %s', (_label, value) => {
     expect(isCheck(value)).toBe(false);
   });
