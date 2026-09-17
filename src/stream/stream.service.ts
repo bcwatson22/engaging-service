@@ -3,7 +3,7 @@ import type IORedis from 'ioredis';
 
 import { redisClient } from '../redis/redis.module';
 import { HashStore } from '../render/hash.store';
-import type { Artifact } from '../render/render.constants';
+import { sourcesFor, type Artifact } from '../render/render.constants';
 import {
   deadLetterStream,
   dedupePrefix,
@@ -105,12 +105,17 @@ export class StreamService {
      value the worker recomputes anyway — it does its own check, because by the
      time it runs the site has usually finished revalidating. Recording the
      previous hash instead costs one lookup and makes a dead letter legible:
-     it says which version this job was meant to supersede. */
+     it says which version this job was meant to supersede.
+
+     Keyed by the artifact's source key rather than the job name, which is what
+     the worker records under. They are the same string for the startup images
+     and differ for the CV, so reading by job name returned nothing for the CV
+     alone. */
   private async payload(
     artifact: Artifact,
     force: boolean,
   ): Promise<StreamJob> {
-    const previous = (await this.hashes.get(artifact)) ?? '';
+    const previous = (await this.hashes.get(sourcesFor(artifact).key)) ?? '';
 
     return {
       v: streamVersion,
