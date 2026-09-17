@@ -2,7 +2,7 @@ import { Test } from '@nestjs/testing';
 
 import { redisClient } from '../redis/redis.module';
 import { HashStore } from '../render/hash.store';
-import { cvPdfJob } from '../render/render.constants';
+import { artifacts, cvPdfJob, sourcesFor } from '../render/render.constants';
 import {
   payloadField,
   renderStream,
@@ -130,6 +130,21 @@ describe('enqueue', () => {
 
     expect(payloadOf(xadd).contentHash).toBe('');
   });
+
+  /* The worker records under the artifact's source key, and for the CV that is
+     the object key rather than the job name. Reading by job name found nothing
+     and every cv-pdf job carried an empty hash — invisible from the payload
+     alone, because an artifact that has never been rendered looks the same. */
+  it.each(artifacts)(
+    'reads %s under the key the worker wrote',
+    async (artifact) => {
+      const { service, get } = await setup();
+
+      await service.enqueue(artifact);
+
+      expect(get).toHaveBeenNthCalledWith(1, sourcesFor(artifact).key);
+    },
+  );
 
   it('passes force through', async () => {
     const { service, xadd } = await setup();
