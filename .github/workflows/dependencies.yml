@@ -1,0 +1,104 @@
+name: Dependencies
+
+# Versions here are pinned exactly, so nothing updates on its own and the tree
+# drifts quietly until something needs a security fix in a hurry. This raises
+# the patch and minor bumps once a month, proves them against the repo's own
+# verify, and opens a PR for the ones that pass.
+#
+# Split the same way as the PageSpeed routine: the script does what is
+# decidable — read pnpm outdated, classify by semver, write the manifest — and
+# Claude does the part that needs judgement, which is what to do when the
+# build breaks and how to say so.
+on:
+  schedule:
+    # 07:00 UTC on the 2nd, an hour after the PageSpeed routine and a day
+    # clear of it, so two PRs never arrive in the same breath.
+    - cron: '0 7 2 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: dependencies
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Writes package.json, installs, and leaves dependencies.json describing
+      # what it raised and what it held back.
+      - name: Bump
+        run: node scripts/dependencies.ts
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          settings: '{"attribution":{"commit":"","pr":""}}'
+          claude_args: |
+            --model claude-sonnet-5
+            --max-turns 40
+            --allowedTools "Read,Edit,Bash(git:*),Bash(pnpm:*),Bash(gh pr list:*),Bash(gh pr view:*),Bash(gh pr create:*),Bash(gh pr edit:*)"
+          prompt: |
+            dependencies.json describes this month's dependency bumps: `apply`
+            has the patch and minor ones already written into package.json and
+            installed, and `hold` has the majors, deliberately left alone.
+
+            If `apply` is empty, change nothing, print one line saying the tree
+            is up to date, and stop. That is a success.
+
+            Otherwise:
+
+            1. Run `pnpm verify`. If it passes, go to step 3.
+
+            2. If it fails, work out which bump caused it. Revert that one
+               package in package.json to its `from` version, run
+               `pnpm install --no-frozen-lockfile`, and run `pnpm verify`
+               again. Repeat until it passes or nothing is left to drop. Keep a
+               note of each package you dropped and the error that made you
+               drop it — that list is the most useful thing in the PR.
+
+               Do not change any application code, test or config to make a
+               bump pass. A dependency that needs code changes is a dependency
+               to hold back and mention, not one to force through. The only
+               files you may edit are package.json and pnpm-lock.yaml.
+
+            3. Commit on a branch named chore/dependencies-<yyyy-mm> and open a
+               PR with `gh pr create --assignee bcwatson22`. Title:
+               "chore: bump dependencies for <Month Year>". Body, as prose
+               rather than a checklist:
+               - what was raised, grouped so it reads quickly
+               - what was dropped, with the error that caused it
+               - what was held back as a major, with its version jump, and
+                 since when. Read the previous months' PRs with
+                 `gh pr list --search "chore: bump dependencies" --state all`
+                 and say how long each major has been sitting there. A list
+                 that repeats unchanged for months is the thing this routine
+                 is least good at surfacing, so name it: "held back since
+                 July" is pressure, "held back" is wallpaper.
+                 Mention that `.github/workflows/dependencyMajor.yml` is how
+                 to take one on, and name the packages that have to move
+                 together — a major rarely arrives alone, as vitest and its
+                 coverage providers do
+               - anything else you noticed worth a second look
+
+            Never merge, never push to main, and never use --no-verify. If
+            `pnpm verify` cannot be made to pass by dropping packages, revert
+            package.json and pnpm-lock.yaml entirely, open no PR, and explain
+            what happened in your final message so the run's log is the record.

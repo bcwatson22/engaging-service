@@ -17,9 +17,12 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "noEmit": true,
+    // scripts/ runs under plain Node, which needs the .ts extension on a
+    // relative import. Allowed because nothing here is emitted by tsc.
+    "allowImportingTsExtensions": true,
     "incremental": true,
     "types": ["node", "vitest/globals"]
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "scripts/**/*"],
   "exclude": ["node_modules", "dist"]
 }

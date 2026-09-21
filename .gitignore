@@ -12,3 +12,6 @@ coverage/
 .vscode/
 
 tsconfig.tsbuildinfo
+
+# written by scripts/dependencies.ts for the monthly routine, not kept
+dependencies.json
