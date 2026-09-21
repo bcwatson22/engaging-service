@@ -1,0 +1,99 @@
+name: Dependency major
+
+# The monthly routine never applies a major: a major is a promise the author
+# has broken something, and an unattended agent should not be deciding what to
+# do about that. This is the other half — you pick the upgrade, and Claude does
+# the work with you reviewing.
+#
+# Unlike the monthly run, this one may change application code, because that is
+# what a major usually needs. It still cannot merge, and its PR is the review.
+on:
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: >-
+          Packages to take to their latest major, comma separated. A major
+          rarely arrives alone — vitest and its coverage providers have to move
+          together, as do react and react-dom.
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: dependency-major-${{ inputs.packages }}
+  cancel-in-progress: false
+
+jobs:
+  major:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          settings: '{"attribution":{"commit":"","pr":""}}'
+          claude_args: |
+            --model claude-sonnet-5
+            --max-turns 80
+            --allowedTools "Read,Edit,Write,Bash(git:*),Bash(pnpm:*),Bash(node:*),Bash(gh pr create:*),Bash(gh pr edit:*),WebFetch"
+          prompt: |
+            Take these packages to their latest major version, together:
+            ${{ inputs.packages }}
+
+            This repo pins most versions exactly, enforces 100% coverage, and
+            runs lint, format, types, a script-strip check, the test suite and a
+            build through `pnpm verify`. Read CLAUDE.md before you start — this
+            service sits between two others, and a dependency that changes a
+            payload or an HTTP shape is a contract change, not an upgrade.
+
+            1. Find the latest version of each package. Read its changelog or
+               migration guide before changing anything — a major exists
+               because something was removed or renamed, and guessing at that
+               from a type error is slower than reading what the author wrote.
+
+            2. Write the new versions into package.json exactly, with no range
+               prefix, and install. If a package in the list has peers that
+               must match, say so and include them rather than fighting the
+               resolver.
+
+            3. Run `pnpm verify` and make it pass. Here, unlike the monthly
+               routine, you may change application code and tests — that is
+               the point of this workflow. Two rules hold:
+               - Fix the cause, never the check. Do not weaken a threshold,
+                 add a lint disable, skip a test or loosen a type to get to
+                 green. If the only way through is to weaken something, stop
+                 and explain why in the PR instead.
+               - Keep the change to what the upgrade needs. A migration is not
+                 an invitation to refactor the surrounding code.
+
+            4. Commit on a branch named chore/<package>-<major> — for a set,
+               name it after the one that leads, such as chore/nestjs-12 — and
+               open a PR with `gh pr create --assignee bcwatson22`.
+
+               The body is prose and should tell the reviewer what a changelog
+               would not: what actually broke, what you changed to fix it, and
+               anything you are unsure about. Quote the migration guide where
+               it explains a change you made. If behaviour changed in a way
+               tests cannot see, say so plainly and say where to look.
+
+            If you cannot make verify pass, open no PR. Revert everything,
+            and use your final message to say what the upgrade needs — the
+            file, the API that changed, and what a person would have to decide.
+            A clear account of why it is hard is a good outcome for this
+            workflow; a green PR that quietly weakened a check is not.

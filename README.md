@@ -244,6 +244,34 @@ To roll back, list the releases and redeploy the image from a good one:
 fly releases -a engaging-service
 ```
 
+## Maintenance
+
+Versions are pinned exactly, and `.npmrc` sets `save-exact` so `pnpm add` keeps
+it that way. Nothing moves until something decides it should, which is what a
+reproducible build needs and also how a tree drifts until a security fix is
+suddenly urgent. So a routine moves it.
+
+`.github/workflows/dependencies.yml` runs on the 2nd of each month. A script
+reads `pnpm outdated`, applies every patch and minor bump, and installs; Claude
+then runs `pnpm verify`. If it passes, it opens a PR. If it fails, it finds the
+package that broke it, drops that one, and ships the rest with the error that
+caused it quoted in the PR. It may only edit `package.json` and the lockfile.
+Merging deploys, so this repo is where a broken bump costs most, and it is why
+nothing here merges without review.
+
+Majors are never applied by that routine. The monthly PR lists them and how long
+each has been held back, and `dependencyMajor.yml` takes one on when asked by
+name — for a set that must move together, name them all:
+
+```bash
+gh workflow run dependencyMajor.yml -f packages="@nestjs/common,@nestjs/core,@nestjs/platform-express,@nestjs/testing"
+```
+
+That one may change code, because a major usually needs it, under a rule
+against weakening any check to reach green. Here there is a second rule: a
+dependency that changes a payload or an HTTP shape is a contract change with
+the site or the worker, not an upgrade, and the PR should say so.
+
 ## Endpoints
 
 | Route                         | Trigger       | Notes                                                                                         |
