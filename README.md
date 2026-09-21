@@ -255,7 +255,8 @@ suddenly urgent. So a routine moves it.
 reads `pnpm outdated`, applies every patch and minor bump, and installs; Claude
 then runs `pnpm verify`. If it passes, it opens a PR. If it fails, it finds the
 package that broke it, drops that one, and ships the rest with the error that
-caused it quoted in the PR. It may only edit `package.json` and the lockfile.
+caused it quoted in the PR. It may only edit `package.json` and the lockfile, and a check after it enforces
+that: a branch that changes anything else is closed and the run fails.
 Merging deploys, so this repo is where a broken bump costs most, and it is why
 nothing here merges without review.
 

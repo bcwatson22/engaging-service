@@ -47,6 +47,12 @@ jobs:
       - name: Bump
         run: node scripts/dependencies.ts
 
+      # Named here rather than by the model, so the guard below knows exactly
+      # which branch to inspect.
+      - name: Name the branch
+        id: branch
+        run: echo "name=chore/dependencies-$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -79,7 +85,8 @@ jobs:
                to hold back and mention, not one to force through. The only
                files you may edit are package.json and pnpm-lock.yaml.
 
-            3. Commit on a branch named chore/dependencies-<yyyy-mm> and open a
+            3. Commit on the branch ${{ steps.branch.outputs.name }} — that exact
+               name, which a check after this step inspects — and open a
                PR with `gh pr create --assignee bcwatson22`. Title:
                "chore: bump dependencies for <Month Year>". Body, as prose
                rather than a checklist:
@@ -102,3 +109,50 @@ jobs:
             `pnpm verify` cannot be made to pass by dropping packages, revert
             package.json and pnpm-lock.yaml entirely, open no PR, and explain
             what happened in your final message so the run's log is the record.
+
+      # The prompt says this run may change only package.json and the lockfile.
+      # That is a request to a model; this makes it a rule. If the branch it
+      # pushed touches anything else, the PR is closed, the branch deleted, and
+      # the run fails so the failure email says why.
+      #
+      # It runs after the PR exists rather than before, because the PR has to be
+      # opened by the Claude GitHub App: a PR opened with the workflow's own
+      # token does not trigger CI, and an unproven PR is worse than a closed one.
+      # always(), so a model step that failed after pushing is still checked.
+      - name: Guard the diff
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.branch.outputs.name }}
+        run: |
+          set -euo pipefail
+
+          if ! git fetch --quiet --depth=50 origin main "$BRANCH" 2>/dev/null; then
+            echo "No branch pushed this month, so nothing to guard."
+            exit 0
+          fi
+
+          outside=$(git diff --name-only "origin/main" "origin/$BRANCH" |
+            grep -vxE 'package\.json|pnpm-lock\.yaml' || true)
+
+          if [ -z "$outside" ]; then
+            echo "Only package.json and pnpm-lock.yaml changed."
+            exit 0
+          fi
+
+          echo "::error::The dependency run changed files it may not touch:"
+          echo "$outside"
+
+          pr=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+
+          if [ -n "$pr" ]; then
+            gh pr close "$pr" --delete-branch --comment "Closed by the diff guard. The monthly run may change only package.json and pnpm-lock.yaml, and this branch also changed:
+
+          $(printf '%s\n' "$outside" | sed 's/^/- /')
+
+          A dependency that needs code changes belongs in dependencyMajor.yml, where a person asks for it by name."
+          else
+            git push --quiet origin --delete "$BRANCH"
+          fi
+
+          exit 1
