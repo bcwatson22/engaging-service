@@ -97,8 +97,15 @@ jobs:
                bodies in this repo; the paragraph about what you are unsure of
                does that job better.
 
-            If a tool you need is refused, say which one in your final
-            message rather than working around it — the list of tools this
+            Before you finish, write everything you would have said in a
+            final message to $RUNNER_TEMP/report.md — what you did, what broke,
+            what you decided and what you are unsure of. A step after this one
+            puts that file in the run summary, and it is the only place your
+            reasoning survives: this action hides its own output, and a run
+            that opens no PR otherwise leaves nothing to read.
+
+            If a tool you need is refused, say which one in that report rather
+            than working around it — the list of tools this
             workflow allows is a guess, and a refusal is how it gets corrected.
 
             If you cannot make verify pass, open no PR. Revert everything,
@@ -106,3 +113,17 @@ jobs:
             file, the API that changed, and what a person would have to decide.
             A clear account of why it is hard is a good outcome for this
             workflow; a green PR that quietly weakened a check is not.
+
+      # The action hides Claude's output and its own summary comes back empty,
+      # so a run that decides against opening a PR leaves no reasoning behind —
+      # which is the run you most want to read. Claude writes its report to a
+      # file; this puts it where a person looks.
+      - name: Publish the report
+        if: always()
+        run: |
+          if [ -s "$RUNNER_TEMP/report.md" ]; then
+            cat "$RUNNER_TEMP/report.md" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No report was written. Read the job log, and treat a missing" >> "$GITHUB_STEP_SUMMARY"
+            echo "report as a bug in this workflow rather than a quiet success." >> "$GITHUB_STEP_SUMMARY"
+          fi
