@@ -92,6 +92,11 @@ jobs:
                it explains a change you made. If behaviour changed in a way
                tests cannot see, say so plainly and say where to look.
 
+               No test-plan or checklist section. CI shows what ran, and a list
+               of boxes ticked by the author is noise beside the prose PR
+               bodies in this repo; the paragraph about what you are unsure of
+               does that job better.
+
             If you cannot make verify pass, open no PR. Revert everything,
             and use your final message to say what the upgrade needs — the
             file, the API that changed, and what a person would have to decide.
