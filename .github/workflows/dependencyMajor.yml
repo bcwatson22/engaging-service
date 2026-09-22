@@ -51,7 +51,7 @@ jobs:
           claude_args: |
             --model claude-sonnet-5
             --max-turns 80
-            --allowedTools "Read,Edit,Write,Bash(git:*),Bash(pnpm:*),Bash(node:*),Bash(gh pr create:*),Bash(gh pr edit:*),WebFetch"
+            --allowedTools "Read,Edit,Write,Grep,Glob,Bash(git:*),Bash(pnpm:*),Bash(node:*),Bash(npm view:*),Bash(gh pr list:*),Bash(gh pr view:*),Bash(gh pr create:*),Bash(gh pr edit:*),WebFetch"
           prompt: |
             Take these packages to their latest major version, together:
             ${{ inputs.packages }}
@@ -96,6 +96,10 @@ jobs:
                of boxes ticked by the author is noise beside the prose PR
                bodies in this repo; the paragraph about what you are unsure of
                does that job better.
+
+            If a tool you need is refused, say which one in your final
+            message rather than working around it — the list of tools this
+            workflow allows is a guess, and a refusal is how it gets corrected.
 
             If you cannot make verify pass, open no PR. Revert everything,
             and use your final message to say what the upgrade needs — the
