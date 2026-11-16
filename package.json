@@ -40,13 +40,13 @@
     "@swc/core": "1.16.21",
     "@types/node": "26.6.6",
     "@types/supertest": "7.2.1",
-    "@vitest/coverage-v8": "4.1.10",
+    "@vitest/coverage-v8": "5.1.0",
     "oxfmt": "0.75.0",
     "oxlint": "1.90.0",
     "supertest": "7.3.1",
     "typescript": "6.0.3",
     "unplugin-swc": "1.5.10",
-    "vitest": "4.1.11"
+    "vitest": "5.1.0"
   },
   "engines": {
     "node": "^24.0.0"
